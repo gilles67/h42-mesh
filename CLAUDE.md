@@ -60,7 +60,7 @@ Déploiement VPS : conteneurs Podman lancés par Quadlet (Traefik, contrôleur, 
 
 ### Modèle de connexion internet
 Chaque connexion porte :
-- `role` : `active` ou `secours` (une connexion de secours a **toujours** une priorité moindre) ;
+- `role` : `active` ou `backup` (secours ; une connexion de secours a **toujours** une priorité moindre) — valeurs en anglais dans le code et l'API, l'interface traduit ;
 - `priority` : optionnelle, départage un même rôle ;
 - connexion directe possible : oui/non, **séparément pour IPv4 et IPv6** ;
 - plage de ports IPv4 : optionnelle (IPv4 partagées) ;
@@ -93,6 +93,8 @@ Chaque connexion porte :
 
 ## Style de code
 
+- **Code en anglais** : identifiants, commentaires, docstrings, messages d'erreur et de journal, noms et données de test. La documentation (`docs/`) et les réponses restent en français.
+
 ### Python
 - Annotations de type partout ; code asynchrone côté contrôleur.
 - Formatage et analyse : ruff ; vérification de types : mypy ; tests : pytest.
@@ -116,7 +118,14 @@ Chaque connexion porte :
 À compléter au fur et à mesure (installation, tests, lancement local) :
 
 ```
-# contrôleur : à définir
+# contrôleur (depuis controller/)
+uv sync                                    # installation
+uv run ruff check . && uv run ruff format --check .
+uv run mypy
+uv run pytest
+uv run tortoise makemigrations -n <nom>    # après toute modification des modèles
+uv run tortoise migrate                    # base choisie par H42_MESH_DATABASE_URL
+
 # agent : à définir
 # interface : à définir
 ```

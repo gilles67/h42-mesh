@@ -209,3 +209,8 @@ __marimo__/
 
 #Sample databases
 database.db
+
+# Bases SQLite locales du contrôleur
+*.db
+*.db-shm
+*.db-wal
