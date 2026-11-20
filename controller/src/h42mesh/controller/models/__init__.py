@@ -1,17 +1,40 @@
-"""Tortoise models (storage). Never expose them directly through the API."""
+"""Tortoise models (storage), following docs/data-model.md.
 
-from h42mesh.controller.models.connection import InternetConnection
-from h42mesh.controller.models.enrollment import EnrollmentToken
-from h42mesh.controller.models.enums import ConnectionKind, ConnectionRole, SiteKind
+Never expose them directly through the API.
+"""
+
+from h42mesh.controller.models.bgp import BgpRoute
+from h42mesh.controller.models.connection import Connection
+from h42mesh.controller.models.enrollment import EnrollmentToken, UsedJwtId
+from h42mesh.controller.models.enums import (
+    AddressFamily,
+    BgpRouteSource,
+    ConnectionRole,
+    DirectMode,
+    MeshAccessLevel,
+)
+from h42mesh.controller.models.mesh import Mesh
 from h42mesh.controller.models.router import Router
 from h42mesh.controller.models.site import Site
+from h42mesh.controller.models.tunnel import Tunnel, TunnelStatus
+from h42mesh.controller.models.user import MeshAccess, User, UserSession
 
 __all__ = [
-    "ConnectionKind",
+    "AddressFamily",
+    "BgpRoute",
+    "BgpRouteSource",
+    "Connection",
     "ConnectionRole",
+    "DirectMode",
     "EnrollmentToken",
-    "InternetConnection",
+    "Mesh",
+    "MeshAccess",
+    "MeshAccessLevel",
     "Router",
     "Site",
-    "SiteKind",
+    "Tunnel",
+    "TunnelStatus",
+    "UsedJwtId",
+    "User",
+    "UserSession",
 ]

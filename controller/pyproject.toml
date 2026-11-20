@@ -8,6 +8,8 @@ dependencies = [
     "tortoise-orm>=1.1.9,<2",
     "pydantic>=2.10,<3",
     "pydantic-settings>=2.6,<3",
+    "tzdata>=2024.1",
+    "cryptography>=44",
 ]
 
 [dependency-groups]
@@ -38,11 +40,11 @@ extend-exclude = ["src/h42mesh/controller/migrations/0*.py"]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "ASYNC", "RUF", "N", "ANN", "S"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "ANN"]
+"tests/**" = ["S101", "S106", "ANN"]
 
 [tool.mypy]
 strict = true
-mypy_path = "src"
+mypy_path = "src,tests"
 files = ["src", "tests"]
 explicit_package_bases = true
 namespace_packages = true

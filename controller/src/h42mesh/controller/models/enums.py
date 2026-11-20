@@ -1,11 +1,11 @@
-"""Enumerations stored as text (CharEnumField)."""
+"""Enumerations stored as text (CharEnumField), in English; the GUI translates them."""
 
 from enum import StrEnum
 
 
-class SiteKind(StrEnum):
-    HOME = "home"
-    RELAY = "relay"  # VPS: single-router site, AS in the 4200000101+ range
+class MeshAccessLevel(StrEnum):
+    MANAGE = "manage"
+    READ = "read"  # every piece of information of the mesh, no modification
 
 
 class ConnectionRole(StrEnum):
@@ -13,13 +13,21 @@ class ConnectionRole(StrEnum):
     BACKUP = "backup"  # always lower precedence than an active connection
 
 
-class ConnectionKind(StrEnum):
-    """Connection type: informational only, drives no behaviour."""
+class DirectMode(StrEnum):
+    """Address families in which a connection accepts inbound tunnels."""
 
-    FIBER = "fiber"
-    DSL = "dsl"
-    CABLE = "cable"
-    LTE = "4g"
-    NR = "5g"
-    STARLINK = "starlink"
-    OTHER = "other"
+    NONE = "none"
+    IPV4 = "ipv4"
+    IPV6 = "ipv6"
+    BOTH = "both"
+
+
+class AddressFamily(StrEnum):
+    IPV4 = "ipv4"
+    IPV6 = "ipv6"
+
+
+class BgpRouteSource(StrEnum):
+    LOCAL = "local"  # announced by this router
+    TUNNEL = "tunnel"  # learnt through a tunnel (eBGP)
+    INTERNAL = "internal"  # learnt from the other router of the site (iBGP)
