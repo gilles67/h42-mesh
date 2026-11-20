@@ -214,3 +214,6 @@ database.db
 *.db
 *.db-shm
 *.db-wal
+
+# Phrase secrète de développement du contrôleur
+.dev-passphrase

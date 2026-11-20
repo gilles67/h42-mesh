@@ -176,6 +176,15 @@ uv run mypy
 uv run pytest
 uv run tortoise makemigrations -n <nom>    # après toute modification des modèles
 uv run tortoise migrate                    # base choisie par H42_MESH_DATABASE_URL
+uv run python -m h42mesh.controller.openapi          # exporte ../openapi/controller.json (après tout changement de l'API)
+uv run python -m h42mesh.controller.openapi --check  # vérifie que le fichier est à jour
+
+# lancement local du contrôleur (depuis controller/) : phrase secrète de développement, jamais versionnée
+# migrations appliquées au démarrage ; base SQLite h42-mesh.db par défaut
+printf 'dev passphrase' > .dev-passphrase
+H42_MESH_PASSPHRASE_FILE=.dev-passphrase uv run uvicorn h42mesh.controller.app:create_app --factory --reload
+# PowerShell : $env:H42_MESH_PASSPHRASE_FILE = ".dev-passphrase" ; puis la commande uvicorn
+# santé : http://127.0.0.1:8000/api/v1/health ; documentation : http://127.0.0.1:8000/api/v1/docs
 
 # agent : à définir
 # interface : à définir

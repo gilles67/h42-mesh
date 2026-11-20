@@ -10,6 +10,8 @@ dependencies = [
     "pydantic-settings>=2.6,<3",
     "tzdata>=2024.1",
     "cryptography>=44",
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.32",
 ]
 
 [dependency-groups]
@@ -18,6 +20,7 @@ dev = [
     "pytest-asyncio>=0.25",
     "ruff>=0.8",
     "mypy>=1.13",
+    "httpx2>=2.16.2",
 ]
 
 [build-system]
@@ -40,7 +43,7 @@ extend-exclude = ["src/h42mesh/controller/migrations/0*.py"]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "ASYNC", "RUF", "N", "ANN", "S"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S106", "ANN"]
+"tests/**" = ["S101", "S105", "S106", "ANN"]
 
 [tool.mypy]
 strict = true

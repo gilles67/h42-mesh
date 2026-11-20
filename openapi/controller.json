@@ -1,0 +1,78 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "h42-mesh controller",
+    "summary": "API of the h42-mesh controller (inventory, tunnels, agent configuration).",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Controller health",
+        "description": "Liveness and database reachability, without authentication.",
+        "operationId": "get_health",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ],
+            "title": "Status",
+            "description": "'unavailable' when the database cannot be reached"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Controller version",
+            "examples": [
+              "0.1.0"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "version"
+        ],
+        "title": "HealthResponse"
+      }
+    }
+  }
+}
