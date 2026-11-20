@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from h42mesh.controller.db import build_tortoise_config
@@ -20,3 +22,10 @@ def test_tortoise_config_is_utc_with_migrations() -> None:
     assert config["use_tz"] is True
     assert config["timezone"] == "UTC"
     assert config["apps"]["models"]["migrations"] == "h42mesh.controller.migrations"
+
+
+def test_passphrase_file_from_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("H42_MESH_PASSPHRASE_FILE", raising=False)
+    assert get_settings().passphrase_file is None
+    monkeypatch.setenv("H42_MESH_PASSPHRASE_FILE", str(tmp_path / "passphrase"))
+    assert get_settings().passphrase_file == tmp_path / "passphrase"

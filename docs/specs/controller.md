@@ -30,9 +30,10 @@ Python, FastAPI, Pydantic, Tortoise ORM ; SQLite (PostgreSQL possible, même cod
 
 ## Démarrage
 
-1. Lecture de la phrase secrète ; si la base contient déjà des secrets, essai de déchiffrement de l'un d'eux (s'arrête avec un message clair si la phrase secrète est fausse).
+1. Lecture de la phrase secrète (s'arrête avec un message clair si le fichier est absent, illisible ou vide).
 2. Application des migrations.
-3. Si la base ne contient aucun utilisateur : création de l'administrateur, mot de passe aléatoire affiché une seule fois dans le journal.
+3. Si la base contient déjà des secrets, essai de déchiffrement de l'un d'eux (s'arrête avec un message clair si la phrase secrète est fausse). Cette vérification suit les migrations, car sur une base neuve les tables n'existent pas encore ; les migrations ne touchent jamais aux secrets.
+4. Si la base ne contient aucun utilisateur : création de l'administrateur, mot de passe aléatoire affiché une seule fois dans le journal.
 
 ## API
 
