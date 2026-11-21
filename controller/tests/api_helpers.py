@@ -17,7 +17,7 @@ from h42mesh.controller import encryption
 from h42mesh.controller.api import auth as auth_api
 from h42mesh.controller.api import deps
 from h42mesh.controller.app import create_app
-from h42mesh.controller.auth import passwords, sessions, totp
+from h42mesh.controller.auth import agent_jwt, enrollment, passwords, sessions, totp
 from h42mesh.controller.auth.sessions import COOKIE_NAME
 from h42mesh.controller.settings import Settings
 
@@ -41,7 +41,7 @@ class Clock:
 
 def install_clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
     clock = Clock()
-    for module in (sessions, deps, auth_api):
+    for module in (sessions, deps, auth_api, enrollment, agent_jwt):
         monkeypatch.setattr(module, "now", clock.now)
     monkeypatch.setattr(totp, "_now", lambda: clock.current.timestamp())
     # Cheap scrypt and Argon2 parameters: tests encrypt and hash a lot. Secrets

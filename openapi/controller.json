@@ -2891,6 +2891,322 @@
           }
         }
       }
+    },
+    "/api/v1/routers/{router_id}/enrollment-tokens": {
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Create an enrollment token for a router",
+        "description": "Single use, valid a few hours, shown once. Previous unused tokens are deleted.",
+        "operationId": "create_enrollment_token",
+        "parameters": [
+          {
+            "name": "router_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Router Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentTokenCreated"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/routers/{router_id}/revoke": {
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Revoke the signing key of a router",
+        "description": "The agent is refused from its next request on; a new enrollment lifts it.",
+        "operationId": "revoke_router",
+        "parameters": [
+          {
+            "name": "router_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Router Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouterRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/enroll": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Enroll a router with a single-use token",
+        "description": "The agent sends its new Ed25519 public key with the token; the token is used up.",
+        "operationId": "enroll_router",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/me": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Who am I",
+        "operationId": "get_agent_identity",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentIdentity"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/signing-key": {
+      "put": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Renew the signing key",
+        "description": "Authenticated with the current key; the new one replaces it, without history.\n\nJWTs signed with the previous key are refused from the next request on.",
+        "operationId": "renew_signing_key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SigningKeyRenewal"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2902,6 +3218,36 @@
           "ipv6"
         ],
         "title": "AddressFamily"
+      },
+      "AgentIdentity": {
+        "properties": {
+          "router_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Router Id"
+          },
+          "mesh_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Mesh Id"
+          },
+          "site_nickname": {
+            "type": "string",
+            "title": "Site Nickname"
+          },
+          "router_number": {
+            "type": "integer",
+            "title": "Router Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "router_id",
+          "mesh_id",
+          "site_nickname",
+          "router_number"
+        ],
+        "title": "AgentIdentity"
       },
       "ConnectionCreate": {
         "properties": {
@@ -3216,6 +3562,66 @@
         ],
         "title": "DirectMode",
         "description": "Address families in which a connection accepts inbound tunnels."
+      },
+      "EnrollRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Token",
+            "description": "Single-use enrollment token"
+          },
+          "signing_public_key": {
+            "type": "string",
+            "maxLength": 44,
+            "minLength": 44,
+            "title": "Signing Public Key",
+            "description": "Ed25519 public key, base64 (32 bytes)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "signing_public_key"
+        ],
+        "title": "EnrollRequest"
+      },
+      "EnrollResponse": {
+        "properties": {
+          "router_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Router Id",
+            "description": "Router id: iss and sub of the agent's JWTs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "router_id"
+        ],
+        "title": "EnrollResponse"
+      },
+      "EnrollmentTokenCreated": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "description": "Shown once; only its digest is stored"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "expires_at"
+        ],
+        "title": "EnrollmentTokenCreated"
       },
       "ErrorResponse": {
         "properties": {
@@ -3587,6 +3993,23 @@
         "additionalProperties": false,
         "type": "object",
         "title": "RouterUpdate"
+      },
+      "SigningKeyRenewal": {
+        "properties": {
+          "signing_public_key": {
+            "type": "string",
+            "maxLength": 44,
+            "minLength": 44,
+            "title": "Signing Public Key",
+            "description": "Ed25519 public key, base64 (32 bytes)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "signing_public_key"
+        ],
+        "title": "SigningKeyRenewal"
       },
       "SiteCreate": {
         "properties": {

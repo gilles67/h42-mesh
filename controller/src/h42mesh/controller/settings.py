@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     max_failed_logins: int = Field(default=5, gt=0)
     lockout_minutes: int = Field(default=15, gt=0)
 
+    # Agents: enrollment tokens and signed JWTs.
+    enrollment_token_hours: int = Field(default=4, gt=0)
+    agent_jwt_audience: str = "h42-mesh-controller"
+    agent_jwt_max_lifetime_seconds: int = Field(default=300, gt=0)  # exp at most this far
+    agent_jwt_leeway_seconds: int = Field(default=30, ge=0)  # clock skew tolerance
+
 
 def get_settings() -> Settings:
     return Settings()

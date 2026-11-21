@@ -37,7 +37,16 @@ Réglages des sessions de l'interface, avec leur valeur par défaut :
 | `H42_MESH_MAX_FAILED_LOGINS` | 5 | Échecs consécutifs (mot de passe ou code TOTP) avant blocage |
 | `H42_MESH_LOCKOUT_MINUTES` | 15 | Durée du blocage |
 
-*Proposition* : d'autres réglages (durée de validité des jetons d'enrôlement, audience des JWT) avec des valeurs par défaut, modifiables par variable d'environnement.
+Réglages de l'enrôlement et des JWT des agents :
+
+| Variable | Défaut | Rôle |
+| --- | --- | --- |
+| `H42_MESH_ENROLLMENT_TOKEN_HOURS` | 4 | Durée de validité d'un jeton d'enrôlement ; créer un jeton supprime les jetons non utilisés du même routeur |
+| `H42_MESH_AGENT_JWT_AUDIENCE` | `h42-mesh-controller` | Valeur attendue de `aud` |
+| `H42_MESH_AGENT_JWT_MAX_LIFETIME_SECONDS` | 300 | `exp` refusé s'il est plus loin dans le futur |
+| `H42_MESH_AGENT_JWT_LEEWAY_SECONDS` | 30 | Tolérance d'horloge sur `exp` |
+
+Authentification d'un agent : `Authorization: Bearer <JWT>`, EdDSA uniquement (en-tête vérifié avant tout décodage), `iss` = `sub` = UID du routeur, `aud`, `exp` et `jti` obligatoires, `jti` enregistré (128 caractères au plus) et purgé après expiration. Toute erreur donne 401 `invalid_agent_token` sans détail (la raison est journalisée) ; un routeur révoqué reçoit 403 `router_revoked`, seulement après vérification de sa signature. Un nouvel enrôlement remplace la clé et lève la révocation.
 
 ## Démarrage
 

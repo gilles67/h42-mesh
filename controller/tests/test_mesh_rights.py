@@ -62,6 +62,9 @@ OPERATIONS = [
         manage=True,
     ),
     Operation("PATCH", "/connections/{connection}", {"direct": "both"}, 200, manage=True),
+    # Enrollment.
+    Operation("POST", "/routers/{router}/enrollment-tokens", None, 201, manage=True),
+    Operation("POST", "/routers/{router}/revoke", None, 200, manage=True),
     Operation("DELETE", "/connections/{connection}", None, 204, manage=True),
 ]
 
