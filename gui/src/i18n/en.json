@@ -1,12 +1,125 @@
 {
   "app": {
     "title": "h42-mesh",
-    "subtitle": "Self-hosted mesh VPN",
-    "welcome": "The screens of the controller will appear here."
+    "subtitle": "Self-hosted mesh VPN"
   },
   "common": {
     "logout": "Log out",
-    "retry": "Retry"
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "edit": "Edit",
+    "rename": "Rename",
+    "delete": "Delete",
+    "copied": "Copied",
+    "never": "Never",
+    "createdAt": "Created"
+  },
+  "validation": {
+    "required": "Required."
+  },
+  "values": {
+    "access": {
+      "manage": "Manage",
+      "read": "Read only"
+    },
+    "role": {
+      "active": "Active",
+      "backup": "Backup"
+    },
+    "direct": {
+      "none": "None",
+      "ipv4": "IPv4",
+      "ipv6": "IPv6",
+      "both": "IPv4 and IPv6"
+    }
+  },
+  "mesh": {
+    "listTitle": "Meshes",
+    "name": "Name",
+    "access": "Your access",
+    "create": "New mesh",
+    "rename": "Rename the mesh",
+    "delete": "Delete the mesh",
+    "deleteConfirm": "Delete the mesh {{name}}? Only a mesh without sites can be deleted.",
+    "noneYet": "No mesh yet: create the first one.",
+    "noneShared": "No mesh is shared with you yet."
+  },
+  "site": {
+    "listTitle": "Sites",
+    "name": "Name",
+    "nickname": "Nickname",
+    "nicknameHelp": "4 characters, lower-case letters and digits, unique in the mesh (in the names of the tunnels).",
+    "nicknameFormat": "4 characters: lower-case letters and digits only.",
+    "asn": "AS number",
+    "asnHelp": "Private 4-byte AS, from {{min}} to {{max}}, unique in the mesh.",
+    "asnRange": "A private AS from {{min}} to {{max}}.",
+    "location": "Location",
+    "create": "New site",
+    "edit": "Edit the site {{nickname}}",
+    "delete": "Delete the site",
+    "deleteConfirm": "Delete the site {{nickname}}? Only a site without routers can be deleted.",
+    "none": "No site in this mesh yet."
+  },
+  "router": {
+    "listTitle": "Routers",
+    "number": "Number",
+    "numberHelp": "r0 or r1; it cannot be changed afterwards.",
+    "name": "Name",
+    "state": "State",
+    "lastSeen": "Last contact",
+    "enrolledAt": "Enrolled",
+    "routesReportedAt": "BGP table reported",
+    "create": "New router",
+    "rename": "Rename the router",
+    "delete": "Delete the router",
+    "deleteConfirm": "Delete the router {{name}}, with its connections and tunnels?",
+    "revoke": "Revoke",
+    "none": "No router in this site yet.",
+    "status": {
+      "enrolled": "Enrolled",
+      "waiting": "Waiting for enrollment",
+      "revoked": "Revoked"
+    }
+  },
+  "connection": {
+    "listTitle": "Internet connections",
+    "number": "Number",
+    "numberHelp": "c0 to c9; it cannot be changed afterwards.",
+    "name": "Name",
+    "role": "Role",
+    "roleHelp": "A backup connection is only used when no active one is available.",
+    "priority": "Priority",
+    "priorityHelp": "Optional: the lowest is preferred between connections of the same role.",
+    "direct": "Direct connections",
+    "directHelp": "Families in which this connection accepts incoming tunnels.",
+    "description": "Description",
+    "isp": "ISP",
+    "publicAddresses": "Public addresses",
+    "notDiscovered": "Not discovered yet",
+    "create": "New connection",
+    "edit": "Edit the connection c{{number}}",
+    "deleteConfirm": "Delete the connection {{name}}, with its tunnels?",
+    "none": "No internet connection declared for this router yet."
+  },
+  "enrollment": {
+    "sectionTitle": "Enrollment",
+    "help": "Create a token, then run the command shown on the router. The token can be used once and expires after a few hours.",
+    "helpEnrolled": "A new token lets the router enroll again, for example after a reinstallation or a revocation.",
+    "create": "Create an enrollment token",
+    "renew": "Create a new enrollment token",
+    "title": "Enrollment token",
+    "once": "Copy the command now: the token is shown only once. A new token replaces the previous unused one.",
+    "command": "Run on the router, as root:",
+    "expires": "Expires:",
+    "copy": "Copy the command",
+    "vrfHint": "If the internet connections of the router are in VRFs, add --vrf followed by the VRF of one of them (for example --vrf wan0)."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "text": "This address matches no screen.",
+    "back": "Back to the meshes"
   },
   "auth": {
     "unreachableTitle": "Controller unreachable"
@@ -68,6 +181,21 @@
     "totp_already_enabled": "Two-factor authentication is already enabled.",
     "not_authenticated": "Your session has expired. Please log in again.",
     "setup_required": "Finish the first login first.",
+    "manage_required": "You only have a read-only access to this mesh.",
+    "mesh_creation_forbidden": "You are not allowed to create meshes.",
+    "mesh_name_taken": "A mesh already has this name.",
+    "mesh_not_empty": "The mesh still has sites: delete them first.",
+    "mesh_not_found": "This mesh does not exist, or is not shared with you.",
+    "site_name_taken": "A site of this mesh already has this name.",
+    "nickname_taken": "A site of this mesh already has this nickname.",
+    "asn_taken": "A site of this mesh already has this AS number.",
+    "site_not_empty": "The site still has routers: delete them first.",
+    "site_not_found": "This site does not exist, or is not shared with you.",
+    "router_number_taken": "This router number is already used in the site.",
+    "router_not_found": "This router does not exist, or is not shared with you.",
+    "connection_number_taken": "This connection number is already used on the router.",
+    "connection_not_found": "This connection does not exist, or is not shared with you.",
+    "conflict": "The data changed meanwhile: try again.",
     "invalid_input": "Some fields are invalid.",
     "network": "The controller cannot be reached.",
     "unknown": "Something went wrong. Please try again."

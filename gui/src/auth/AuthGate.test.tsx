@@ -2,6 +2,7 @@
 // expiry, against a fake controller.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 
 import { $api } from "../api/client";
 import { App } from "../App";
@@ -28,9 +29,11 @@ function controller(state: { me: CurrentUser | null }, extra = {}) {
 
 function renderApp() {
   renderWithProviders(
-    <AuthGate>
-      <App />
-    </AuthGate>,
+    <MemoryRouter>
+      <AuthGate>
+        <App />
+      </AuthGate>
+    </MemoryRouter>,
   );
 }
 

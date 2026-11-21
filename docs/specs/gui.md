@@ -56,7 +56,32 @@ En lecture seule, les écrans sont les mêmes, sans les boutons de modification.
 - **Déconnexion** : `POST /auth/logout`, puis retour à l'écran de connexion. Les données lues pour l'utilisateur sont oubliées.
 - **Session expirée** : toute réponse 401 d'une autre route que `/auth/login` et `/auth/totp` est interceptée par le client API. L'interface oublie alors l'utilisateur et revient à l'écran de connexion, avec le message « Your session has expired ».
 - **Erreurs** : le contrôleur renvoie un code stable (`invalid_credentials`, `account_locked`…) ; l'interface le traduit (`errors.<code>` dans `en.json`). Un code inconnu donne un message générique.
-- **Routage** : il n'y a pas encore d'adresses (URL) par écran. Le garde remplace le contenu par l'écran de connexion, puis rend l'application telle qu'elle était. Un routeur viendra avec les premiers écrans du maillage.
+- **Retour à la connexion** : le garde remplace le contenu par l'écran de connexion, puis, une fois connecté, rend l'écran de l'adresse en cours.
+
+## Écrans du maillage (implémentés dans `src/pages/` et `src/inventory/`)
+
+| Adresse | Écran | Avec l'accès `manage` |
+| --- | --- | --- |
+| `/` | Maillages : nom, accès de l'utilisateur (`manage` / `read`), date de création | création, pour l'administrateur et les utilisateurs autorisés |
+| `/meshes/:id` | Un maillage et ses sites : quadrigramme, nom, AS, emplacement | renommer ou supprimer le maillage ; créer, modifier, supprimer les sites |
+| `/sites/:id` | Un site et ses routeurs : numéro, nom, état (enrôlé, en attente, révoqué), dernier contact | modifier ou supprimer le site ; déclarer, renommer, supprimer les routeurs |
+| `/routers/:id` | Un routeur et ses connexions : rôle, priorité, connexion directe, opérateur, adresses publiques, description | enrôlement, révocation, renommer, supprimer ; déclarer, modifier, supprimer les connexions |
+
+- **Routeur d'adresses** : react-router (MIT), version 7. La version 8 est sortie, mais son API n'a pas encore été étudiée.
+- **Droits** : seul le maillage porte le niveau d'accès de l'utilisateur (`access_level`). Ses sites, routeurs et connexions le partagent : un écran remonte au maillage (routeur → site → maillage) pour le connaître.
+  - Les boutons de modification n'apparaissent qu'avec l'accès `manage`.
+  - Le contrôleur vérifie de toute façon les droits.
+- **Formulaires** : `@mantine/form`. Ils reprennent les règles des schémas du contrôleur avant l'envoi :
+  - quadrigramme `[a-z0-9]{4}` ;
+  - AS de 4200000000 à 4294967294 ; une valeur hors plage est signalée, jamais corrigée en silence ;
+  - numéros `r0`–`r1` et `c0`–`c9` encore libres.
+- **Modification** : un champ facultatif vidé est envoyé à `null`, ce qui l'efface (sémantique PATCH du contrôleur).
+- **Enrôlement** : le bouton crée un jeton (`POST /routers/{id}/enrollment-tokens`).
+  - Le jeton est affiché **une seule fois**, dans une fenêtre, avec la commande à copier : `h42-mesh-agent enroll --controller <adresse de la page> --token <jeton>`. L'adresse du contrôleur est celle de la page, car Traefik sert l'interface et l'API sur le même nom.
+  - Il est oublié à la fermeture de la fenêtre. Un nouveau jeton remplace le précédent non utilisé.
+  - La fenêtre rappelle l'option `--vrf` pour un routeur dont les connexions sont dans des VRF.
+- **Après une modification** : toutes les données affichées sont relues.
+- **À prévoir pour le conteneur `h42-mesh-gui`** : le serveur de fichiers statiques doit renvoyer `index.html` pour toute adresse inconnue (`/meshes/…`), sinon le rechargement d'une page donne une erreur 404. Le serveur de développement de Vite le fait déjà.
 
 ## Mentions obligatoires
 

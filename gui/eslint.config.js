@@ -27,6 +27,26 @@ export default defineConfig(
         "error",
         {
           mode: "jsx-only",
+          // Calls whose strings are not texts: the defaults of the plugin
+          // (t, i18n…), plus the names of form fields: form.getInputProps("name").
+          callees: {
+            exclude: [
+              "i18n(ext)?",
+              "t",
+              "require",
+              "addEventListener",
+              "removeEventListener",
+              "postMessage",
+              "getElementById",
+              "dispatch",
+              "commit",
+              "includes",
+              "indexOf",
+              "endsWith",
+              "startsWith",
+              "getInputProps$",
+            ],
+          },
           "jsx-attributes": {
             include: ["aria-label", "title", "alt", "placeholder", "label", "description", "error"],
           },

@@ -27,6 +27,14 @@ class ResizeObserverStub {
 }
 window.ResizeObserver = ResizeObserverStub;
 
+// Scrolling to the chosen option of a list (Select).
+Element.prototype.scrollIntoView = vi.fn();
+
+// Font loading events, followed by the textareas that grow with their text.
+if (!("fonts" in document)) {
+  Object.defineProperty(document, "fonts", { value: new EventTarget() });
+}
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();

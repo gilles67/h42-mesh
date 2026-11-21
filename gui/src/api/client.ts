@@ -30,3 +30,14 @@ fetchClient.use({
 
 // Hooks for TanStack Query: $api.useQuery("get", "/api/v1/health").
 export const $api = createClient(fetchClient);
+
+/**
+ * Wait for a call of fetchClient and throw its error answer, if any: the
+ * error then reaches TanStack Query like those of $api.useMutation.
+ */
+export async function orThrow(call: Promise<{ error?: unknown; response: Response }>): Promise<void> {
+  const { error, response } = await call;
+  if (!response.ok) {
+    throw error ?? new Error(`HTTP ${response.status}`);
+  }
+}

@@ -1,10 +1,11 @@
 // Entry point: loads the Mantine styles and draws the application in the
 // <div id="root"> of index.html. The AuthGate shows the login screens until
-// someone is logged in.
+// someone is logged in; BrowserRouter follows the address of the page.
 import "@mantine/core/styles.css";
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router";
 
 import { App } from "./App";
 import { AuthGate } from "./auth/AuthGate";
@@ -17,10 +18,12 @@ if (root === null) {
 
 createRoot(root).render(
   <StrictMode>
-    <Providers queryClient={createQueryClient()}>
-      <AuthGate>
-        <App />
-      </AuthGate>
-    </Providers>
+    <BrowserRouter>
+      <Providers queryClient={createQueryClient()}>
+        <AuthGate>
+          <App />
+        </AuthGate>
+      </Providers>
+    </BrowserRouter>
   </StrictMode>,
 );

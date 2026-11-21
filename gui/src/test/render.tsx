@@ -3,9 +3,14 @@
 import { QueryClient } from "@tanstack/react-query";
 import { render, type RenderResult } from "@testing-library/react";
 import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
 
+import { App } from "../App";
+import type { CurrentUser } from "../auth/currentUser";
+import { UserContext } from "../auth/UserContext";
 import { Providers } from "../Providers";
+import { ALICE } from "./users";
 
 export function renderWithProviders(ui: ReactElement): RenderResult {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -13,6 +18,17 @@ export function renderWithProviders(ui: ReactElement): RenderResult {
     <Providers queryClient={queryClient} env="test">
       {ui}
     </Providers>,
+  );
+}
+
+/** The application of a logged-in user, at the address ``path``. */
+export function renderScreen(path: string, user: CurrentUser = ALICE): RenderResult {
+  return renderWithProviders(
+    <MemoryRouter initialEntries={[path]}>
+      <UserContext.Provider value={user}>
+        <App />
+      </UserContext.Provider>
+    </MemoryRouter>,
   );
 }
 
