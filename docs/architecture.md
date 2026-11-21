@@ -177,7 +177,9 @@ Toute route reçue par un tunnel de secours porte une communauté BGP large « s
 
 - **Valeur** : calculée à partir de l'AS du site qui la pose, `<AS du site>:1:2` (par exemple `4200000003:1:2`), selon l'usage des communautés larges (RFC 8092), dont la première partie est l'AS de celui qui la définit. Rien n'est à configurer, et la communauté indique quel site a reçu la route par un tunnel de secours.
 - **Pose** : à la réception, sur chaque session BGP d'un tunnel de secours, par le routeur qui reçoit la route.
-- **Reconnaissance** : chaque routeur reconnaît la communauté quel que soit l'AS qui la porte, par une expression régulière (`^[0-9]+:1:2$`) dans une liste de communautés larges de FRR, plutôt que par la liste des AS du maillage, qui changerait à chaque ajout de site.
+- **Reconnaissance** : chaque routeur reconnaît la communauté quel que soit l'AS qui la porte, par une expression régulière (`_[0-9]+:1:2_`) dans une liste de communautés larges de FRR, plutôt que par la liste des AS du maillage, qui changerait à chaque ajout de site.
+  - FRR applique l'expression à la liste complète des communautés de la route, séparées par des espaces.
+  - Le caractère `_` de FRR (début, fin ou espace) fait reconnaître la communauté où qu'elle soit dans la liste, y compris pour une route passée par plusieurs tunnels de secours (`4200000001:1:2 4200000003:1:2`). `^[0-9]+:1:2$` ne le permettrait pas.
 - **Transmission** : les communautés larges sont transmises sur toutes les sessions (eBGP et iBGP).
 
 ### Détection de panne

@@ -55,3 +55,12 @@ Sujets reportés, à reprendre plus tard. Chaque entrée dit ce qui était prév
   - tester l'IPv6 sans toucher au tunnel en service, par exemple avec une seconde interface de test, ou une sonde UDP vers le port de l'autre extrémité ;
   - espacer les essais quand ils échouent plusieurs fois de suite ;
   - faire de l'IPv6 et de l'IPv4 deux tunnels distincts, laissés au choix de BGP. Cela change le modèle de données et est à discuter.
+
+## keepalived (VRRP) sur un site de maison à deux routeurs
+
+- **Prévu** (`architecture.md`) : sur un site de maison à deux routeurs, keepalived fournit aux appareils de la maison une passerelle unique. Le routeur qui porte la connexion active est la passerelle principale ; pas de VRRP sur un site de VPS.
+- **Reporté** : la configuration de keepalived demande l'interface du réseau local, l'adresse virtuelle (IPv4, IPv6) et un numéro VRRP (`virtual_router_id`). Ni le contrôleur ni la configuration locale de l'agent ne les contiennent, et l'adressage des réseaux locaux relève de l'application pare-feu.
+- **À définir**, avec l'application pare-feu :
+  - d'où viennent ces valeurs (par exemple une section facultative `[vrrp]` dans `agent.toml`, ou l'application pare-feu) ;
+  - comment la priorité suit l'état de la connexion active (par exemple un fichier suivi par keepalived, `track_file`, écrit par l'agent) ;
+  - quel routeur l'emporte quand les deux ont une connexion active.

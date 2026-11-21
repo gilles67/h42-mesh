@@ -181,3 +181,18 @@ async def test_renumbered_connection_gets_a_new_backend() -> None:
     assert backends.by_prefix["wd0c0"].closed
     await tunnels.close()
     assert backends.by_prefix["wd0c1"].closed
+
+
+async def test_routing_applied_with_the_tunnels(agent: Agent) -> None:
+    from h42mesh.agent.routing.apply import FRR_CONF, RoutingApplier
+    from test_routing_apply import FakeSystem
+
+    system = FakeSystem()
+    agent.routing = RoutingApplier(system)
+    backends = Backends()
+    async with wired(agent.hub, {FIBER: FakeController(accepting)}, backends.instances()):
+        plan = await agent.apply_tunnels()
+        assert plan is not None
+        await agent.apply_routing(plan)
+    assert f"interface {NAME}\n" in system.files[FRR_CONF]
+    assert system.reloads == 1

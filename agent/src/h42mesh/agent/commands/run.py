@@ -1,8 +1,9 @@
 """h42-mesh-agent run: main process, launched by h42-mesh-agent.service.
 
 It launches one instance per connection (ip vrf exec), restarts them, polls
-the configuration and has the public addresses discovered. Applying the
-configuration (WireGuard, FRR, keepalived) comes later.
+the configuration, has the public addresses discovered and the tunnels
+applied by the instances, and generates the FRR configuration and sysctls.
+keepalived comes later.
 """
 
 import asyncio
@@ -18,6 +19,7 @@ from h42mesh.agent.agent_loop import Agent
 from h42mesh.agent.commands import load_or_exit
 from h42mesh.agent.config import AgentConfig, config_path
 from h42mesh.agent.ipc.hub import WorkerHub
+from h42mesh.agent.routing.apply import RoutingApplier
 from h42mesh.agent.signing import SigningKeyError, TokenSigner, key_from_pem
 from h42mesh.agent.state import StateError, StateStore
 from h42mesh.agent.supervisor import InstanceSupervisor, worker_command
@@ -42,7 +44,7 @@ async def main_process(
     config: AgentConfig, config_file: Path, store: StateStore, signer: TokenSigner
 ) -> None:
     hub = WorkerHub({c.uid for c in config.connections})
-    agent = Agent(config=config, store=store, signer=signer, hub=hub)
+    agent = Agent(config=config, store=store, signer=signer, hub=hub, routing=RoutingApplier())
     hub.on_connect = agent.on_instance_connected
     socket = system.socket_path()
     server = await system.start_unix_server(socket, hub.handle_connection)

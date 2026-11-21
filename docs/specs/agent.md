@@ -235,9 +235,46 @@ Le processus principal est le seul à lire et écrire ces fichiers. Il transmet 
    - côté `b`, gérer le repli IPv6 → IPv4 selon les délais de la connexion.
 4. Supprimer, par l'instance de connexion concernée, les tunnels qui ne sont plus voulus (arrêt du processus, suppression de l'interface et des clés).
 5. Générer la configuration de FRR (Jinja2) : session eBGP par tunnel sur fe80::, `extended-nexthop`, BFD ou temporisations lentes selon le rôle, communauté « secours », `redistribute connected` filtré, session iBGP sur le lien interne ; recharger FRR seulement si elle a changé.
-6. Générer la configuration de keepalived sur un site de maison à deux routeurs.
+6. Générer la configuration de keepalived sur un site de maison à deux routeurs (**reporté**, voir [todo.md](../todo.md)).
 7. Réglages système : `rp_filter` souple sur les tunnels, réservation de la plage de ports (`net.ipv4.ip_local_reserved_ports`).
 8. Remonter l'état des tunnels et la table BGP (lue avec `vtysh … json`).
+
+Les étapes 5 et 7 suivent chaque application des tunnels, dans la boucle de configuration (toutes les 30 s).
+
+## Configuration de FRR (paquet `h42mesh.agent.routing`)
+
+Le calcul est séparé de l'application :
+
+- `frr.py` calcule un modèle à partir de la configuration reçue, de `agent.toml`, des tunnels voulus et des interfaces présentes ;
+- le gabarit Jinja2 `templates/frr.conf.j2` en fait le texte ;
+- les tests comparent le fichier généré à des fichiers de référence (`tests/data/frr/` : tunnel actif, tunnel de secours, site à deux routeurs).
+
+Contenu :
+
+- **Sessions eBGP** : une par tunnel ayant une interface (les tunnels en attente n'en ont pas).
+  - `neighbor <fe80:: de l'autre extrémité> interface <wd…>` et `remote-as <AS du site distant>`.
+  - Groupe `H42-ACTIVE` ou `H42-BACKUP` selon le rôle du tunnel, avec `capability extended-nexthop`, pour IPv4 et IPv6.
+- **Tunnels actifs** : BFD (profil `h42-active` : 300 ms × 3, détection en moins d'une seconde).
+- **Tunnels de secours** : sans BFD, temporisations `60 180`. À la réception (`route-map H42-IN-BACKUP`), le routeur pose la communauté `<AS du site>:1:2` (`additive`) et une préférence locale de 50.
+- **Toutes les sessions** : à la réception (`route-map H42-IN`), une route qui porte une communauté `*:1:2` reçoit une préférence locale de 50 (liste `H42-BACKUP-ROUTES`, expression `_[0-9]+:1:2_`).
+  - Communautés larges transmises sur toutes les sessions (`send-community large`).
+  - `route-map H42-OUT` en sortie (FRR exige une politique sur les sessions eBGP).
+- **Annonces** : `redistribute connected route-map H42-CONNECTED`. Le route-map écarte :
+  - 169.254.0.0/16, 127.0.0.0/8, fe80::/10, ::1 ;
+  - les interfaces de tunnel, `lo` et les interfaces de conteneurs présentes (`docker0`, `podman0`, `cni-…`, `br-<12 chiffres hexadécimaux>` de Docker, `virbr0`, `veth…`).
+- **Lien interne** : session iBGP (groupe `H42-INTERNAL`, `remote-as internal`, `next-hop-self`), voisin `<peer_link_local> interface <interface>` déclaré explicitement.
+- **Identifiant BGP** : pas de `router-id`, choisi par FRR.
+- **Application** : le texte est comparé à `/etc/frr/frr.conf`.
+  - S'il diffère, ou si le rechargement précédent a échoué, le fichier est réécrit de façon atomique (`0640`, propriétaire `frr`) puis FRR est rechargé avec son outil `frr-reload.py --reload`. Sinon, rien n'est fait.
+  - **Prérequis** : `bgpd` et `bfdd` activés dans `/etc/frr/daemons` (configuration du système).
+
+### Réglages système (`sysctl.py`)
+
+- **`net.ipv4.ip_local_reserved_ports`** (vaut aussi pour IPv6) contient la plage du routeur.
+  - Les plages posées par d'autres sont conservées.
+  - Celles qui tombent dans la bande du maillage (`42000 + 2000 × maillage`, 2000 ports) sont retirées, par exemple après un changement de numéro de routeur.
+  - La valeur n'est écrite que si elle change.
+- **`rp_filter`** vaut 2 sur les interfaces de tunnel présentes (aussi réglé à la création du tunnel).
 
 ## Isolation de la gestion de WireGuard
 

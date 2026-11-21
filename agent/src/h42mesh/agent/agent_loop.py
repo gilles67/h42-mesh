@@ -41,6 +41,7 @@ from h42mesh.agent.messages import (
     RouterConfig,
     TunnelKeysReport,
 )
+from h42mesh.agent.routing.apply import RoutingApplier
 from h42mesh.agent.selection import connection_order
 from h42mesh.agent.signing import TokenSigner
 from h42mesh.agent.state import StateError, StateStore, StoredConfig, TunnelState
@@ -92,6 +93,7 @@ class Agent:
     signer: TokenSigner
     hub: WorkerHub
     now: Callable[[], datetime] = lambda: datetime.now(UTC)
+    routing: RoutingApplier | None = None  # FRR and sysctls; None in most tests
     _tunnels_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
 
     # --- requests ------------------------------------------------------------
@@ -292,6 +294,16 @@ class Agent:
         for name, error in applied.errors.items():
             logger.error("tunnel %s: %s", name, error)
 
+    async def apply_routing(self, plan: TunnelPlan) -> None:
+        """FRR configuration (reloaded only if it changed) and sysctls."""
+        stored = self.store.load_config()
+        if self.routing is None or stored is None:
+            return
+        try:
+            await self.routing.apply(stored.config, self.config, plan)
+        except (OSError, ValueError) as exc:
+            logger.error("routing not applied: %s", exc)
+
     async def tunnel_statuses(self) -> dict[UUID, list[TunnelStatus]]:
         """States of the tunnels, from each connected instance."""
         found: dict[UUID, list[TunnelStatus]] = {}
@@ -316,7 +328,9 @@ class Agent:
             except (ControllerUnreachableError, ControllerError, ConfigRejectedError) as exc:
                 logger.warning("configuration not refreshed: %s", exc)
             try:
-                await self.apply_tunnels()  # idempotent: nothing done if nothing changed
+                plan = await self.apply_tunnels()  # idempotent: nothing done if nothing changed
+                if plan is not None:
+                    await self.apply_routing(plan)
             except StateError as exc:
                 logger.error("tunnels not applied: %s", exc)
             await asyncio.sleep(CONFIG_INTERVAL + random.uniform(-CONFIG_JITTER, CONFIG_JITTER))  # noqa: S311
