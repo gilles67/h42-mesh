@@ -11,7 +11,15 @@ Application web monopage, simple client de l'API du contrôleur. Elle ne contien
 TypeScript (mode strict), React, Vite, Mantine (composants), TanStack Query (appels à l'API et cache), React Flow (topologie). Compilée en fichiers statiques servis par un conteneur léger ; aucun serveur Node.js en production.
 
 - **Client API** : généré depuis la description OpenAPI du contrôleur, jamais écrit à la main.
-- **Langue** : anglais. Tous les textes passent par le mécanisme de traduction (i18n, par exemple react-i18next), y compris l'affichage des valeurs de l'API (`active`, `backup`…), pour pouvoir traduire l'interface plus tard.
+  - **openapi-typescript** (MIT) produit les types (`src/api/schema.d.ts`, versionné ; `npm run api:check` vérifie qu'il est à jour).
+  - **openapi-fetch** (MIT) fait les appels, vérifiés par ces types, avec le cookie de session (`credentials: "include"`).
+  - **openapi-react-query** (MIT) les relie à TanStack Query.
+- **Langue** : anglais. Tous les textes passent par le mécanisme de traduction, y compris l'affichage des valeurs de l'API (`active`, `backup`…), pour pouvoir traduire l'interface plus tard.
+  - Bibliothèques : i18next et react-i18next, avec les textes dans `src/i18n/en.json`.
+  - Les clés sont typées : une clé inconnue est une erreur de compilation.
+  - La règle ESLint `i18next/no-literal-string` refuse tout texte écrit en dur dans un composant.
+- **Développement** : `npm run dev` ; le serveur de Vite redirige `/api` vers le contrôleur local. La page et l'API ont donc la même origine, comme en production derrière Traefik, et le cookie de session fonctionne.
+- **Tests** : Vitest, Testing Library et jsdom ; les réponses de l'API sont simulées.
 
 ## Écrans (*proposition*)
 

@@ -195,5 +195,13 @@ uv run mypy
 uv run pytest
 uv run h42-mesh-agent --config tests/data/agent.toml status   # configuration par défaut : /etc/h42-mesh/agent.toml
 sudo H42_MESH_AGENT_INTEGRATION=1 uv run pytest -m integration   # tests système (Linux, root : VRF, ip vrf exec ; wireguard-go et wg installés)
-# interface : à définir
+# interface (depuis gui/) : Node.js 22 LTS ou plus récent
+npm install                  # installation (dépendances de package-lock.json)
+npm run dev                  # lancement local : http://localhost:5173, /api redirigé vers le contrôleur (127.0.0.1:8000)
+npm run api:generate         # régénère src/api/schema.d.ts depuis ../openapi/controller.json (après tout changement de l'API)
+npm run api:check            # vérifie que src/api/schema.d.ts est à jour
+npm run typecheck            # vérification des types (tsc, mode strict)
+npm run lint                 # ESLint, dont l'interdiction des textes en dur (eslint-plugin-i18next)
+npm test                     # tests (Vitest)
+npm run build                # fichiers statiques dans dist/
 ```

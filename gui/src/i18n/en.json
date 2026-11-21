@@ -1,0 +1,17 @@
+{
+  "app": {
+    "title": "h42-mesh",
+    "subtitle": "Self-hosted mesh VPN",
+    "welcome": "The screens of the controller will appear here."
+  },
+  "health": {
+    "label": "Controller",
+    "checking": "Checking…",
+    "ok": "Available (version {{version}})",
+    "unavailable": "Database unavailable",
+    "unreachable": "Unreachable"
+  },
+  "footer": {
+    "maxmind": "This product includes GeoLite2 data created by MaxMind, available from <url>https://www.maxmind.com</url>."
+  }
+}

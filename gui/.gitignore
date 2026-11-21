@@ -1,0 +1,5 @@
+# Installed dependencies and build output
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
