@@ -152,7 +152,7 @@ Adresses publiques : **au plus une IPv4 et une IPv6 par connexion**, jamais sais
 - Annotations de type partout ; code asynchrone côté contrôleur.
 - Formatage et analyse : ruff ; vérification de types : mypy ; tests : pytest.
 - Tests du contrôleur exécutés sur **SQLite et PostgreSQL**.
-- Dépendances : uniquement des bibliothèques compatibles avec la licence MIT (MIT, BSD, Apache 2.0, ISC). Les outils GPL (FRR, WireGuard, keepalived) sont pilotés comme programmes séparés, jamais intégrés.
+- Dépendances : uniquement des bibliothèques compatibles avec la licence MIT (MIT, BSD, Apache 2.0, ISC ; MPL 2.0 pour les dépendances utilisées sans modification). Les outils GPL (FRR, WireGuard, keepalived) sont pilotés comme programmes séparés, jamais intégrés.
 
 ### TypeScript
 - Mode strict activé.
@@ -194,5 +194,6 @@ uv run ruff check . && uv run ruff format --check .
 uv run mypy
 uv run pytest
 uv run h42-mesh-agent --config tests/data/agent.toml status   # configuration par défaut : /etc/h42-mesh/agent.toml
+sudo H42_MESH_AGENT_INTEGRATION=1 uv run pytest -m integration   # tests système (Linux, root : VRF, ip vrf exec)
 # interface : à définir
 ```

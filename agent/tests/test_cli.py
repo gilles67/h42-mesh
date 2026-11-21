@@ -94,7 +94,6 @@ def test_missing_config_exits_2(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "command",
     [
-        ["run"],
         ["connection", "list"],
         ["connection", "show", "c0"],
         ["connection", "show", "6f1c0d2e-8b7a-4c1e-9d3f-2a5b6c7d8e9f"],
@@ -123,8 +122,27 @@ def test_not_implemented_exits_1(command: list[str]) -> None:
     assert "not implemented yet" in err
 
 
-def test_enroll_without_config_file(tmp_path: Path) -> None:
-    code, _, err = invoke(
+def test_run_requires_an_enrollment() -> None:
+    code, _, err = invoke("--config", EXAMPLE, "run")
+    assert code == 1
+    assert "not enrolled" in err
+
+
+def test_enroll_without_config_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The configuration file may not exist yet when enrolling."""
+    import json
+
+    from agent_harness import FakeController, answer
+    from h42mesh.agent.commands import enroll as enroll_module
+    from h42mesh.agent.state import StateStore
+
+    router_id = "6f1c0d2e-8b7a-4c1e-9d3f-2a5b6c7d8e9f"
+    controller = FakeController(
+        lambda c: answer(200, json.dumps({"router_id": router_id}).encode())
+    )
+    monkeypatch.setattr(enroll_module, "default_client", lambda url, config: controller)
+    monkeypatch.setattr(enroll_module, "StateStore", lambda _: StateStore(tmp_path / "state"))
+    code, out, _ = invoke(
         "--config",
         str(tmp_path / "absent.toml"),
         "enroll",
@@ -133,8 +151,8 @@ def test_enroll_without_config_file(tmp_path: Path) -> None:
         "--token",
         "abc",
     )
-    assert code == 1  # not a configuration error: the file may not exist yet
-    assert "enroll: not implemented yet" in err
+    assert code == 0
+    assert f"Enrolled: router {router_id}" in out
 
 
 def test_enroll_validates_an_existing_config(bad_config: str) -> None:

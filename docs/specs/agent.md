@@ -21,7 +21,7 @@ Un agent rejoint **un seul maillage, sur un seul contrôleur** (numéro de maill
 
 | Commande | Rôle |
 | --- | --- |
-| `h42-mesh-agent enroll --controller … --token …` | Génère la paire de clés Ed25519, s'enrôle, enregistre l'identifiant du routeur |
+| `h42-mesh-agent enroll --controller … --token … [--vrf …]` | Génère une nouvelle paire de clés Ed25519, s'enrôle, enregistre l'identifiant du routeur ; avec `--vrf`, la commande se relance elle-même dans cette VRF (`ip vrf exec`), la VRF par défaut n'ayant pas d'accès à Internet ; la clé n'est écrite qu'après l'acceptation par le contrôleur |
 | `h42-mesh-agent run` | Boucle principale ; l'unité systemd lance explicitement `run` |
 | `h42-mesh-agent status` | Affiche l'état local de l'agent (voir ci-dessous) ; **obligatoire** |
 | `h42-mesh-agent` (sans commande) | Affiche la même chose que `status` |
@@ -124,6 +124,7 @@ Modèles (noms du code, en anglais) :
 | `mesh_number` | entier | `0` | 0 à 9 |
 | `dns_servers` | liste d'adresses IP | les 4 serveurs par défaut | au moins une adresse ; IPv4 ou IPv6 |
 | `state_dir` | chemin | `/var/lib/h42-mesh` | chemin absolu |
+| `jwt_audience` | texte | `h42-mesh-controller` | audience des JWT, égale au réglage `H42_MESH_AGENT_JWT_AUDIENCE` du contrôleur |
 | `internal_link` | `InternalLink` | absent | facultatif |
 | `connections` | liste de `ConnectionSettings` | liste vide | UID, interfaces et VRF tous différents d'une connexion à l'autre |
 
@@ -179,7 +180,8 @@ Avantages :
 *Propositions* :
 
 - les instances de connexion sont des **processus enfants du processus principal** (une seule unité systemd, `h42-mesh-agent.service`), lancés par `ip vrf exec <vrf> h42-mesh-agent connection-worker <uid>` ; le processus principal les relance s'ils s'arrêtent. L'unité systemd a besoin de `Delegate=yes`, car `ip vrf exec` crée un sous-groupe de contrôle (*cgroup*) : à vérifier par le prototype ;
-- les processus communiquent par une socket Unix locale (non concernée par les VRF) ;
+- les processus communiquent par une socket Unix locale (non concernée par les VRF) : le processus principal écoute sur `/run/h42-mesh/agent.sock` (0600), chaque instance s'y connecte et s'annonce par l'UID de sa connexion ; messages JSON, un par ligne ;
+- le processus principal signe les JWT (seul à lire `agent.key`) et les transmet dans les requêtes confiées aux instances, qui ne lisent jamais `state_dir` ;
 - les échanges avec le contrôleur passent par les instances de connexion, déjà dans leur VRF : le processus principal confie ses requêtes à l'instance de la meilleure connexion disponible (actives d'abord, par priorité, puis secours) et passe à la suivante en cas d'échec ;
 - le module de gestion de WireGuard (voir ci-dessous) est utilisé par les instances de connexion.
 
@@ -202,7 +204,8 @@ Dans le dossier d'état de l'agent (`state_dir`, `/var/lib/h42-mesh` par défaut
 | `config.json` | Dernière configuration valide reçue du contrôleur, avec son empreinte, sa date de réception et le contrôleur qui l'a fournie |
 | `config.previous.json` | La configuration précédente, pour revenir en arrière si la nouvelle ne peut pas être appliquée |
 | `tunnels/<uid du tunnel>.json` | État local de chaque tunnel : clé privée X25519, port choisi, et si le contrôleur a bien enregistré la clé publique et le port |
-| `agent.key` | Clé privée Ed25519 de l'agent |
+| `agent.key` | Clé privée Ed25519 de l'agent (PEM, PKCS#8) |
+| `identity.json` | Identifiant du routeur et contrôleur d'enrôlement, écrits par `enroll` |
 
 - **Écriture sûre** : chaque fichier est écrit dans un fichier temporaire, synchronisé sur le disque, puis renommé à la place de l'ancien. Une coupure de courant pendant l'écriture laisse donc l'ancienne version intacte, jamais un fichier à moitié écrit.
 - **Au démarrage** : l'agent applique d'abord `config.json`, puis interroge le contrôleur. Les tunnels se rétablissent ainsi dès le démarrage, même si le contrôleur est injoignable.
@@ -249,7 +252,10 @@ Le reste de l'agent (boucle de réconciliation, FRR, remontées) ne connaît que
 - Toutes les requêtes (configuration, remontées, reconnaissance des adresses) partent de la VRF d'une connexion internet, en essayant d'abord les connexions actives par ordre de priorité, puis les connexions de secours. Elles sont émises par l'instance de la connexion, qui est déjà dans sa VRF (voir « Organisation en processus »). La reconnaissance des adresses d'une connexion est toujours faite par sa propre instance.
 - **Client DNS intégré** : le nom des contrôleurs est résolu par l'agent lui-même, en interrogeant les serveurs DNS depuis la VRF de la connexion, sans la résolution du système. Serveurs interrogés : `1.1.1.1`, `2606:4700:4700::1111` (Cloudflare), `8.8.8.8` et `2001:4860:4860::8888` (Google) par défaut, modifiables dans la configuration locale ; seuls ceux de la famille disponible sur la connexion sont utilisés. *Proposition* : bibliothèque dnspython (licence ISC).
 - La connexion HTTPS est établie vers l'adresse obtenue, en vérifiant le certificat pour le nom du contrôleur (indication du nom, SNI).
-- Si le premier contrôleur ne répond pas, l'agent essaie le second.
+- Si le premier contrôleur ne répond pas, l'agent essaie le second : erreur réseau, délai dépassé, erreur TLS, ou réponse 502, 503 ou 504. Une autre réponse du contrôleur (4xx par exemple) est une vraie réponse, sans bascule.
+- **Choix de la connexion** : connexions actives, puis de secours ; dans un même rôle, la plus petite `priority` d'abord, une connexion sans priorité après, puis le numéro de connexion ; avant la première configuration reçue, l'ordre de `agent.toml`. L'agent passe à la connexion suivante si l'instance est absente ou si aucun contrôleur n'est joignable par elle.
+- **Rythmes** : configuration toutes les 30 s (± 5 s) ; reconnaissance des adresses à chaque (re)connexion d'une instance puis toutes les 10 min ; relance d'une instance arrêtée après 1 s, puis 2, 4… jusqu'à 60 s, délai remis à 1 s après 5 min de fonctionnement.
+- **Configuration reçue** : refusée (la précédente reste en place) si elle n'est pas valide ou si son `ETag` diffère de son empreinte.
 - **Modèles des messages** : pas de paquet commun avec le contrôleur. L'agent a sa propre copie des modèles Pydantic des messages, adaptée à ses besoins (il peut n'en garder que les champs qu'il utilise). La référence reste la description OpenAPI du contrôleur.
   - Les modèles des réponses du contrôleur ignorent les champs inconnus (`extra="ignore"`), pour qu'un contrôleur plus récent qui ajoute un champ ne casse pas un agent plus ancien. À l'inverse, la configuration locale refuse les champs inconnus.
   - *Proposition* : un test de l'agent compare ses modèles à la description OpenAPI du contrôleur (fichier exporté dans le dépôt), pour détecter un écart avant la mise en service.

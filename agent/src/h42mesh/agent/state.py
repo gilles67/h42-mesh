@@ -6,6 +6,7 @@
 | config.previous.json   | the one before, to roll back                         |
 | tunnels/<uid>.json     | X25519 private key and port of each tunnel           |
 | agent.key              | Ed25519 private key of the agent                     |
+| identity.json          | router id and controller, written by the enrollment  |
 
 Every file holds secrets: written atomically (temporary file in the same
 directory, fsync, rename, fsync of the directory) with mode 0600, in
@@ -29,6 +30,7 @@ CONFIG_FILE = "config.json"
 PREVIOUS_CONFIG_FILE = "config.previous.json"
 TUNNELS_DIR = "tunnels"
 AGENT_KEY_FILE = "agent.key"
+IDENTITY_FILE = "identity.json"
 
 
 class StateError(Exception):
@@ -44,6 +46,16 @@ class StoredConfig(BaseModel):
     received_at: datetime
     controller: str  # URL of the controller that provided it
     config: RouterConfig
+
+
+class Identity(BaseModel):
+    """Who the agent is for the controller: written by a successful enrollment."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    router_id: UUID
+    controller: str  # URL the router enrolled with
+    enrolled_at: datetime
 
 
 class TunnelState(BaseModel):
@@ -109,6 +121,10 @@ class StateStore:
     @property
     def agent_key_path(self) -> Path:
         return self.state_dir / AGENT_KEY_FILE
+
+    @property
+    def identity_path(self) -> Path:
+        return self.state_dir / IDENTITY_FILE
 
     def tunnel_path(self, tunnel_id: UUID) -> Path:
         # A UUID cannot contain a path separator: no traversal possible.
@@ -205,3 +221,11 @@ class StateStore:
     def save_agent_key(self, key: bytes) -> None:
         self.ensure_directories()
         atomic_write(self.agent_key_path, key)
+
+    # --- identity ------------------------------------------------------------
+
+    def load_identity(self) -> Identity | None:
+        return self._read(self.identity_path, Identity)
+
+    def save_identity(self, identity: Identity) -> None:
+        self._write(self.identity_path, identity)

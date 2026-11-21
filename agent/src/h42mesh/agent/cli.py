@@ -1,13 +1,14 @@
 """Command line of h42-mesh-agent (Typer).
 
 Without a command, the agent behaves as ``status``. Exit codes: 0 success,
-1 not implemented (or failure), 2 invalid configuration or usage error.
+1 failure or not implemented, 2 invalid configuration or usage error.
 """
 
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
+from uuid import UUID
 
 import typer
 
@@ -16,8 +17,10 @@ from h42mesh.agent.commands import connection as connection_cmd
 from h42mesh.agent.commands.enroll import enroll as enroll_cmd
 from h42mesh.agent.commands.run import run as run_cmd
 from h42mesh.agent.commands.status import status as status_cmd
+from h42mesh.agent.commands.worker import connection_worker as worker_cmd
 from h42mesh.agent.config.loader import CONFIG_PATH_ENV, DEFAULT_CONFIG_PATH
 from h42mesh.agent.config.models import controller_url
+from h42mesh.agent.supervisor import agent_executable
 
 app = typer.Typer(
     name="h42-mesh-agent",
@@ -95,10 +98,30 @@ def enroll(
     ctx: typer.Context,
     controller: Annotated[str, typer.Option(help="Controller URL (https://name).")],
     token: Annotated[str, typer.Option(help="Single-use enrollment token.")],
+    vrf: Annotated[
+        str | None, typer.Option(help="Reach the controller through this VRF (ip vrf exec).")
+    ] = None,
 ) -> None:
     """Generate the signing key and enroll the router with a token."""
     url = _parse(controller_url, controller, "--controller")
-    _exit(enroll_cmd(_state(ctx).config, url, token))
+    config = _state(ctx).config
+    # Same command, run again inside the VRF.
+    argv = [*agent_executable(), *(["--config", str(config)] if config else [])]
+    argv += ["enroll", "--controller", url, "--token", token, *(["--vrf", vrf] if vrf else [])]
+    _exit(enroll_cmd(config, url, token, vrf, reexec_argv=argv))
+
+
+@app.command("connection-worker", hidden=True)
+def connection_worker(
+    ctx: typer.Context,
+    uid: Annotated[str, typer.Argument(help="UID of the connection.")],
+    socket: Annotated[
+        Path | None, typer.Option(help="Socket of the main process.", show_default=False)
+    ] = None,
+) -> None:
+    """Connection instance, launched by the main process in the VRF of the connection."""
+    parsed = _parse(UUID, uid, "UID")
+    _exit(worker_cmd(_state(ctx).config, parsed, socket))
 
 
 TargetArgument = Annotated[str, typer.Argument(help="c0…c9, or the connection UID.")]

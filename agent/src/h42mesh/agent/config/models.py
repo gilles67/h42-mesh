@@ -25,6 +25,7 @@ DEFAULT_DNS_SERVERS = (
     "2001:4860:4860::8888",
 )
 DEFAULT_STATE_DIR = PurePosixPath("/var/lib/h42-mesh")
+DEFAULT_JWT_AUDIENCE = "h42-mesh-controller"
 LINK_LOCAL = ipaddress.IPv6Network("fe80::/10")
 
 
@@ -137,6 +138,8 @@ class AgentConfig(_Model):
         list[ipaddress.IPv4Address | ipaddress.IPv6Address], Field(min_length=1)
     ] = Field(default_factory=lambda: [ipaddress.ip_address(a) for a in DEFAULT_DNS_SERVERS])
     state_dir: AbsolutePath = DEFAULT_STATE_DIR
+    # Expected "aud" of the agent JWTs (H42_MESH_AGENT_JWT_AUDIENCE of the controller).
+    jwt_audience: Annotated[str, Field(min_length=1, max_length=255)] = DEFAULT_JWT_AUDIENCE
     internal_link: InternalLink | None = None
     connections: list[ConnectionSettings] = Field(default_factory=list)
 
