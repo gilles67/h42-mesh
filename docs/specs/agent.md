@@ -40,12 +40,26 @@ Définit, dans la configuration locale, les réglages d'une connexion internet p
 
 Options de `set` : `--interface` et `--vrf` (obligatoires à la création), `--ports 42000-42999`, `--force-ipv4 …`, `--force-ipv6 …`, `--fallback-delay 30s`, `--ipv6-retry 10m` (et les options correspondantes pour effacer un réglage).
 
-Fonctionnement (*proposition*) :
+Fonctionnement (implémenté dans `commands/connection.py`) :
 
-- la connexion est désignée par son numéro (`c0`…`c9`), plus simple à saisir que son UID ; l'agent retrouve l'UID dans la configuration reçue du contrôleur et c'est l'UID qui est enregistré dans le fichier. Il accepte aussi directement un UID ;
-- l'agent vérifie avant d'écrire : l'interface existe, la VRF existe (elle est créée par la configuration du système), l'interface est rattachée à cette VRF, la plage de ports et les adresses sont valides ;
-- il modifie le fichier en conservant sa mise en forme et ses commentaires (par exemple avec la bibliothèque tomlkit, licence MIT) ;
-- le service en cours d'exécution prend la modification en compte sans redémarrage (signal de rechargement ou prochain passage de la boucle).
+- **Désignation** : la connexion est désignée par son numéro (`c0`…`c9`), plus simple à saisir que son UID.
+  - L'agent retrouve l'UID dans la configuration reçue du contrôleur (`state_dir/config.json`), et c'est l'UID qui est enregistré dans le fichier.
+  - Il accepte aussi directement un UID, seule possibilité avant la première configuration reçue.
+- **Vérifications avant d'écrire**, dans cet ordre ; en cas de refus, le fichier n'est pas modifié :
+  1. le fichier modifié est validé en entier par Pydantic (types, adresses, délais, doublons) ;
+  2. l'interface existe (`/sys/class/net`) ;
+  3. la VRF existe (elle est créée par la configuration du système) ;
+  4. l'interface est rattachée à cette VRF (`/sys/class/net/<interface>/master`) ;
+  5. la plage de ports recoupe celle du routeur.
+- **Écriture** : avec tomlkit (licence MIT), en conservant la mise en forme et les commentaires. L'écriture est atomique et garde les droits du fichier. `--interface` et `--vrf` sont obligatoires pour une nouvelle connexion.
+- **Prise en compte sans redémarrage** : la commande envoie `SIGHUP` au service en cours, dont le PID est lu dans `status.json`.
+  - Le service vérifie aussi la date de modification de `agent.toml` toutes les 5 s.
+  - Un fichier valide est appliqué ainsi :
+    - connexions ajoutées ou retirées : instances lancées ou arrêtées ;
+    - VRF changée : instance relancée ;
+    - contrôleurs, serveurs DNS ou numéro de maillage changés : toutes les instances relancées ;
+    - autres réglages : utilisés au passage suivant.
+  - Un fichier invalide est refusé et la configuration en cours reste. Un changement de `state_dir` demande un redémarrage.
 
 ### Commande `status`
 
@@ -60,12 +74,36 @@ Contenu (*proposition*) :
 - **Tunnels** : nom d'interface, site et connexion distants, côté (`a`/`b`), rôle, famille utilisée, dernière poignée de main, état de la session BGP ;
 - **Lien interne** (site à deux routeurs) : état de la session iBGP.
 
-Fonctionnement (*proposition*) :
+Fonctionnement (implémenté dans `status_file.py`, `observe.py` et `commands/status.py`) :
 
-- la boucle `run` écrit à chaque passage un état résumé dans un fichier (par exemple `/run/h42-mesh/status.json`) ; `status` le lit et le complète par des lectures directes (`wg show`, `vtysh … json`) ;
-- si le fichier est trop ancien ou absent, `status` l'indique clairement (service arrêté ou bloqué) et affiche ce qu'il peut lire directement ;
-- option `--json` pour une sortie lisible par un programme ;
-- code de retour non nul en cas de problème (service arrêté, contrôleur injoignable depuis longtemps, tunnel hors service), utilisable par une supervision.
+- **Fichier d'état** : la boucle d'observation du service écrit `/run/h42-mesh/status.json` dès le démarrage puis toutes les 30 s (écriture atomique, `0644`, sans secret).
+  - Elle interroge les instances (état des tunnels) et FRR (`vtysh -c "show bgp neighbors json"`).
+  - Elle note les erreurs du passage et les derniers échanges avec le contrôleur : réussite (date, contrôleur, connexion utilisée) et échec.
+- **Commande** : `status` lit ce fichier et `agent.toml`.
+  - Fichier absent : le service ne tourne pas. Écrit il y a plus de 90 s : le service est arrêté ou bloqué. Dans les deux cas, `status` affiche ce qu'il sait de `agent.toml`.
+  - *Pas encore fait* : compléter l'affichage par des lectures directes (`wg show`, `vtysh`).
+- **Problèmes** (code de retour 1 ; 0 si aucun ; 2 si `agent.toml` est invalide) :
+  - service arrêté ou bloqué ;
+  - routeur non enrôlé, ou aucune configuration reçue ;
+  - contrôleur non joint depuis plus de 10 min ;
+  - VRF absente, ou instance de connexion arrêtée ;
+  - connexion inconnue du contrôleur ;
+  - tunnel arrêté, ou session BGP non établie ;
+  - session iBGP du lien interne non établie.
+
+  Un tunnel en attente (clé ou adresse de l'autre extrémité inconnue) n'est pas compté comme un problème du routeur.
+- **`--json`** : `service` (`running`, `stale`, `stopped`), `problems`, `state` (le contenu du fichier) et `config`.
+
+### Remontées au contrôleur
+
+À chaque passage de la boucle d'observation (30 s) :
+
+- **État des tunnels** : `PUT /agent/tunnel-status`, état complet de tous les tunnels du routeur, y compris ceux hors service : famille utilisée, dernière poignée de main, session BGP établie.
+- **Table BGP** : `PUT /agent/bgp-routes`, lue avec `vtysh -c "show bgp ipv4|ipv6 unicast detail json"` (sans `detail` si FRR ne le connaît pas).
+  - **Origine d'un chemin** : tunnel (par l'adresse fe80:: ou l'interface du voisin), lien interne, ou local (chemin sans voisin). Un chemin d'un voisin inconnu est ignoré.
+  - **Chemin de secours** : il porte une communauté `*:1:2`, ou sa préférence locale vaut 50.
+  - *À vérifier* sur un vrai FRR : le format exact du JSON de FRR 10.
+- **Envoi** : une remontée n'est envoyée que si elle a changé, ou au plus tard toutes les 10 min.
 
 ## Configuration locale
 
@@ -349,7 +387,9 @@ Le reste de l'agent (boucle de réconciliation, FRR, remontées) ne connaît que
 | FRR (`vtysh`) | BGP, BFD | GPL, non intégré |
 | keepalived | VRRP | GPL, non intégré |
 | pyroute2 | Interfaces, adresses, VRF | Apache 2.0 / GPL (double licence), utilisé sous Apache 2.0 ; importé seulement sous Linux |
-| dnspython (*proposition*) | Client DNS intégré | ISC |
+| dnspython | Client DNS intégré | ISC |
+| Jinja2 | Configuration de FRR | BSD |
+| tomlkit | Modification de `agent.toml` (commande `connection`) | MIT |
 
 ## Tests
 

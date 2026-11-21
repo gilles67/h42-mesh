@@ -196,3 +196,66 @@ async def test_routing_applied_with_the_tunnels(agent: Agent) -> None:
         await agent.apply_routing(plan)
     assert f"interface {NAME}\n" in system.files[FRR_CONF]
     assert system.reloads == 1
+
+
+# --- observation and reports -------------------------------------------------
+
+
+class FakeFrr:
+    def __init__(self) -> None:
+        self.states = {"fe80::a9fe:c22": "Established"}
+        self.table: list[Any] = []
+
+    def neighbor_states(self) -> dict[str, str]:
+        return self.states
+
+    def routes(self, context: Any) -> list[Any]:
+        return self.table
+
+
+def reporting(calls: list[str]) -> Any:
+    def handler(call: dict[str, Any]) -> Any:
+        calls.append(call["path"])
+        return answer(204)
+
+    return handler
+
+
+async def test_observe_reports_and_writes_the_status(agent: Agent, tmp_path: Path) -> None:
+    from h42mesh.agent.messages import BgpRouteReport, BgpRouteSource
+    from h42mesh.agent.status_file import read_status
+
+    calls: list[str] = []
+    frr = FakeFrr()
+    frr.table = [
+        BgpRouteReport(prefix="192.168.10.0/24", source=BgpRouteSource.LOCAL, as_path=[],
+                       is_best=True, is_backup=False)
+    ]  # fmt: skip
+    agent.frr = frr  # type: ignore[assignment]
+    agent.status_file = tmp_path / "run" / "status.json"
+    agent.vrf_exists = lambda name: True
+    backends = Backends()
+    async with wired(agent.hub, {FIBER: FakeController(reporting(calls))}, backends.instances()):
+        await agent.apply_tunnels()
+        calls.clear()
+        state = await agent.observe()
+        assert calls == ["/api/v1/agent/tunnel-status", "/api/v1/agent/bgp-routes"]
+        # Unchanged: not sent again.
+        await agent.observe()
+        assert len(calls) == 2
+        frr.states = {}
+        await agent.observe()
+        assert calls[2:] == ["/api/v1/agent/tunnel-status"]
+    assert state.last_pass_errors == []
+    assert [t.bgp_state for t in state.tunnels] == ["Established"]
+    assert state.controller.via_connection == FIBER
+    written = read_status(agent.status_file)
+    assert written is not None and written.tunnels[0].name == NAME
+
+
+async def test_observe_records_the_failures(agent: Agent) -> None:
+    async with wired(agent.hub, {FIBER: FakeController(accepting, unreachable=True)}):
+        state = await agent.observe()
+    assert any("tunnel-status" in e for e in state.last_pass_errors)
+    assert state.controller.last_error is not None
+    assert state.controller.last_success_at is None

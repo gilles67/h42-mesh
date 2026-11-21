@@ -1,7 +1,8 @@
 """Command line of h42-mesh-agent (Typer).
 
 Without a command, the agent behaves as ``status``. Exit codes: 0 success,
-1 failure or not implemented, 2 invalid configuration or usage error.
+1 failure (or, for status, a problem found), 2 invalid configuration or usage
+error.
 """
 
 from collections.abc import Callable
@@ -161,7 +162,7 @@ def connection_set(
     ] = None,
 ) -> None:
     """Create or modify the local settings of a connection."""
-    clearable = {"ports", "force-ipv4", "force-ipv6", "fallback-delay", "ipv6-retry"}
+    clearable = set(connection_cmd.CLEARABLE)
     cleared = frozenset(clear or [])
     unknown = cleared - clearable
     if unknown:

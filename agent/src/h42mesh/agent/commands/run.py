@@ -2,8 +2,9 @@
 
 It launches one instance per connection (ip vrf exec), restarts them, polls
 the configuration, has the public addresses discovered and the tunnels
-applied by the instances, and generates the FRR configuration and sysctls.
-keepalived comes later.
+applied by the instances, generates the FRR configuration and sysctls,
+writes status.json, reports the tunnel states and the BGP table, and reloads
+agent.toml when it changes. keepalived comes later.
 """
 
 import asyncio
@@ -19,9 +20,12 @@ from h42mesh.agent.agent_loop import Agent
 from h42mesh.agent.commands import load_or_exit
 from h42mesh.agent.config import AgentConfig, config_path
 from h42mesh.agent.ipc.hub import WorkerHub
+from h42mesh.agent.reload import ConfigWatcher, Instances
 from h42mesh.agent.routing.apply import RoutingApplier
+from h42mesh.agent.routing.bgp import FrrReader
 from h42mesh.agent.signing import SigningKeyError, TokenSigner, key_from_pem
 from h42mesh.agent.state import StateError, StateStore
+from h42mesh.agent.status_file import status_path
 from h42mesh.agent.supervisor import InstanceSupervisor, worker_command
 
 EXIT_FAILED = 1
@@ -44,26 +48,47 @@ async def main_process(
     config: AgentConfig, config_file: Path, store: StateStore, signer: TokenSigner
 ) -> None:
     hub = WorkerHub({c.uid for c in config.connections})
-    agent = Agent(config=config, store=store, signer=signer, hub=hub, routing=RoutingApplier())
+    agent = Agent(
+        config=config,
+        store=store,
+        signer=signer,
+        hub=hub,
+        routing=RoutingApplier(),
+        frr=FrrReader(),
+        status_file=status_path(),
+    )
     hub.on_connect = agent.on_instance_connected
     socket = system.socket_path()
     server = await system.start_unix_server(socket, hub.handle_connection)
-    supervisors = [
-        InstanceSupervisor(c, worker_command(c, config_file, socket), system.vrf_exists)
-        for c in config.connections
-    ]
+    instances = Instances(
+        lambda c: InstanceSupervisor(c, worker_command(c, config_file, socket), system.vrf_exists)
+    )
+    await instances.follow(None, config)
+
+    async def reloaded(new: AgentConfig) -> None:
+        if new.jwt_audience != agent.config.jwt_audience:
+            agent.signer = TokenSigner(agent.signer.key, agent.signer.router_id, new.jwt_audience)
+        old, agent.config = agent.config, new
+        hub.expected = {c.uid for c in new.connections}
+        await instances.follow(old, new)
+        plan = await agent.apply_tunnels()
+        if plan is not None:
+            await agent.apply_routing(plan)
+
+    watcher = ConfigWatcher(config_file, config, reloaded)
     loop = asyncio.get_running_loop()
     main_task = asyncio.current_task()
     for sig in (signal.SIGTERM, signal.SIGINT):
         with contextlib.suppress(NotImplementedError, AttributeError):
             loop.add_signal_handler(sig, main_task.cancel)  # type: ignore[union-attr]
+    with contextlib.suppress(NotImplementedError, AttributeError):
+        loop.add_signal_handler(signal.SIGHUP, watcher.wake.set)  # connection set/remove
     try:
         await asyncio.gather(
-            *(s.run() for s in supervisors), agent.config_loop(), agent.discovery_loop()
+            agent.config_loop(), agent.discovery_loop(), agent.observe_loop(), watcher.run()
         )
     finally:
-        for supervisor in supervisors:
-            supervisor.stop()
+        await instances.stop_all()
         server.close()
 
 

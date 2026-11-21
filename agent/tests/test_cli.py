@@ -15,8 +15,10 @@ runner = CliRunner()
 
 
 @pytest.fixture(autouse=True)
-def _no_config_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _no_config_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv(CONFIG_PATH_ENV, raising=False)
+    # status.json is looked for here, not in /run/h42-mesh.
+    monkeypatch.setenv("H42_MESH_AGENT_RUNTIME_DIR", str(tmp_path / "run"))
 
 
 @pytest.fixture
@@ -34,13 +36,14 @@ def invoke(*args: str) -> tuple[int, str, str]:
 # --- status (and no command) -------------------------------------------------
 
 
-def test_status() -> None:
+def test_status_without_service() -> None:
     code, out, _ = invoke("--config", EXAMPLE, "status")
-    assert code == 0
+    assert code == 1  # the service is not running: a problem
     assert "(valid)" in out
+    assert "service: not running" in out
     assert "https://vps1.example.org" in out
-    assert "6f1c0d2e-8b7a-4c1e-9d3f-2a5b6c7d8e9f  interface eth1  vrf wan0" in out
-    assert "Internal link: eth2 -> fe80::1a2b:3cff:fe4d:5e6f" in out
+    assert "6f1c0d2e-8b7a-4c1e-9d3f-2a5b6c7d8e9f  eth1  vrf wan0" in out
+    assert "eth2 -> fe80::1a2b:3cff:fe4d:5e6f" in out
 
 
 def test_no_command_is_status() -> None:
@@ -49,9 +52,11 @@ def test_no_command_is_status() -> None:
 
 def test_status_json() -> None:
     code, out, _ = invoke("--config", EXAMPLE, "status", "--json")
-    assert code == 0
+    assert code == 1
     document = json.loads(out)
     assert document["config_valid"] is True
+    assert document["service"] == "stopped"
+    assert document["state"] is None
     assert document["config"]["mesh_number"] == 0
     assert [c["vrf"] for c in document["config"]["connections"]] == ["wan0", "wan1"]
 
@@ -59,7 +64,7 @@ def test_status_json() -> None:
 def test_config_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(CONFIG_PATH_ENV, EXAMPLE)
     code, out, _ = invoke("status")
-    assert code == 0
+    assert code == 1  # service not running
     assert EXAMPLE in out
 
 
@@ -88,38 +93,20 @@ def test_missing_config_exits_2(tmp_path: Path) -> None:
     assert "configuration file not found" in err
 
 
-# --- not implemented commands ------------------------------------------------
+# --- connection (details in test_connection.py) -----------------------------
 
 
-@pytest.mark.parametrize(
-    "command",
-    [
-        ["connection", "list"],
-        ["connection", "show", "c0"],
-        ["connection", "show", "6f1c0d2e-8b7a-4c1e-9d3f-2a5b6c7d8e9f"],
-        [
-            "connection",
-            "set",
-            "c1",
-            "--interface",
-            "wwan0",
-            "--vrf",
-            "wan1",
-            "--ports",
-            "42000-42999",
-            "--fallback-delay",
-            "30s",
-            "--ipv6-retry",
-            "10m",
-        ],
-        ["connection", "set", "c1", "--clear", "ports", "--clear", "force-ipv4"],
-        ["connection", "remove", "c1"],
-    ],
-)
-def test_not_implemented_exits_1(command: list[str]) -> None:
-    code, _, err = invoke("--config", EXAMPLE, *command)
+def test_connection_list_without_controller_configuration() -> None:
+    code, out, _ = invoke("--config", EXAMPLE, "connection", "list")
+    assert code == 0
+    assert "local settings only" in out
+    assert "6f1c0d2e-8b7a-4c1e-9d3f-2a5b6c7d8e9f  eth1  vrf wan0" in out
+
+
+def test_connection_number_needs_the_controller_configuration() -> None:
+    code, _, err = invoke("--config", EXAMPLE, "connection", "show", "c0")
     assert code == 1
-    assert "not implemented yet" in err
+    assert "give the UID" in err
 
 
 def test_run_requires_an_enrollment() -> None:

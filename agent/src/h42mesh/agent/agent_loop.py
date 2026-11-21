@@ -6,19 +6,26 @@
 - each instance discovers the public addresses of its own connection;
 - the tunnels: keys and ports kept in state_dir and reported to the
   controller, wanted tunnels sent to the instance of each connection (which
-  applies them with the tunnel backend).
+  applies them with the tunnel backend);
+- observation: states of the tunnels and of the BGP sessions, the BGP table;
+  written to status.json for ``status`` and reported to the controller.
 """
 
 import asyncio
+import json
 import logging
+import os
 import random
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import UUID
 
 from pydantic import ValidationError
 
+from h42mesh.agent import system
 from h42mesh.agent.config import AgentConfig, ConnectionSettings
 from h42mesh.agent.ipc.channel import WorkerUnavailableError
 from h42mesh.agent.ipc.hub import WorkerHub
@@ -34,17 +41,22 @@ from h42mesh.agent.ipc.protocol import (
 from h42mesh.agent.messages import (
     API_PREFIX,
     AddressFamily,
+    BgpRoutesReport,
     ErrorResponse,
     PublicAddressReport,
     PublicAddressResult,
     Request,
     RouterConfig,
     TunnelKeysReport,
+    TunnelStatusesReport,
 )
+from h42mesh.agent.observe import ControllerContact, build_status, route_context, tunnel_reports
 from h42mesh.agent.routing.apply import RoutingApplier
+from h42mesh.agent.routing.bgp import FrrReader, VtyshError
 from h42mesh.agent.selection import connection_order
 from h42mesh.agent.signing import TokenSigner
 from h42mesh.agent.state import StateError, StateStore, StoredConfig, TunnelState
+from h42mesh.agent.status_file import AgentStatus, write_status
 from h42mesh.agent.tunnels.backend import TunnelStatus
 from h42mesh.agent.tunnels.plan import TunnelPlan, plan_tunnels
 
@@ -53,6 +65,8 @@ logger = logging.getLogger(__name__)
 CONFIG_INTERVAL = 30.0
 CONFIG_JITTER = 5.0
 DISCOVERY_INTERVAL = 600.0
+OBSERVE_INTERVAL = 30.0
+REPORT_REFRESH = 600.0  # a report unchanged is sent again after this delay
 
 
 class ControllerUnreachableError(Exception):
@@ -94,6 +108,14 @@ class Agent:
     hub: WorkerHub
     now: Callable[[], datetime] = lambda: datetime.now(UTC)
     routing: RoutingApplier | None = None  # FRR and sysctls; None in most tests
+    frr: FrrReader | None = None  # reading FRR (vtysh); None in most tests
+    status_file: Path | None = None  # where status.json is written; None: not written
+    vrf_exists: Callable[[str], bool] = system.vrf_exists
+    monotonic: Callable[[], float] = time.monotonic
+    contact: ControllerContact = field(default_factory=ControllerContact)
+    last_plan: TunnelPlan | None = field(default=None, init=False)
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    _sent: dict[str, tuple[str, float]] = field(default_factory=dict, init=False, repr=False)
     _tunnels_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
 
     # --- requests ------------------------------------------------------------
@@ -142,10 +164,15 @@ class Agent:
                 family=family,
             )
             try:
-                return await link.call(call)
+                result = await link.call(call)
             except WorkerUnavailableError as exc:
                 errors.append(str(exc))
-        raise ControllerUnreachableError("; ".join(errors) or "no connection instance connected")
+                continue
+            self.contact.succeeded(self.now(), result.controller, uid)
+            return result
+        message = "; ".join(errors) or "no connection instance connected"
+        self.contact.failed(self.now(), message)
+        raise ControllerUnreachableError(message)
 
     # --- configuration -------------------------------------------------------
 
@@ -243,6 +270,7 @@ class Agent:
             if stored is None:
                 return None
             plan = plan_tunnels(stored.config, self.config, self._tunnel_states())
+            self.last_plan = plan
             for tunnel_id in plan.changed:
                 self.store.save_tunnel(plan.states[tunnel_id])
             for tunnel_id, reason in plan.pending.items():
@@ -304,6 +332,75 @@ class Agent:
         except (OSError, ValueError) as exc:
             logger.error("routing not applied: %s", exc)
 
+    # --- observation and reports ---------------------------------------------
+
+    async def observe(self) -> AgentStatus:
+        """Gather the state, report it to the controller, write status.json."""
+        errors: list[str] = []
+        try:
+            stored = self.store.load_config()
+        except StateError as exc:
+            errors.append(str(exc))
+            stored = None
+        statuses = await self.tunnel_statuses()
+        bgp_states: dict[str, str] = {}
+        if self.frr is not None:
+            try:
+                bgp_states = await asyncio.to_thread(self.frr.neighbor_states)
+            except VtyshError as exc:
+                errors.append(f"FRR: {exc}")
+        if stored is not None:
+            config = stored.config
+            reports = tunnel_reports(config, self.last_plan, statuses, bgp_states)
+            await self._report(
+                "PUT", "/agent/tunnel-status", TunnelStatusesReport(tunnels=reports), errors
+            )
+            if self.frr is not None:
+                context = route_context(config, self.last_plan, self.config)
+                try:
+                    routes = await asyncio.to_thread(self.frr.routes, context)
+                except VtyshError as exc:
+                    errors.append(f"FRR: {exc}")
+                else:
+                    await self._report(
+                        "PUT", "/agent/bgp-routes", BgpRoutesReport(routes=routes), errors
+                    )
+        status = build_status(
+            now=self.now(),
+            started_at=self.started_at,
+            pid=os.getpid(),
+            router_id=self.signer.router_id,
+            stored=stored,
+            agent=self.config,
+            plan=self.last_plan,
+            connected=self.hub.connected(),
+            vrf_exists=self.vrf_exists,
+            statuses=statuses,
+            bgp_states=bgp_states,
+            contact=self.contact,
+            errors=errors,
+        )
+        if self.status_file is not None:
+            write_status(status, self.status_file)
+        return status
+
+    async def _report(self, method: str, path: str, body: Request, errors: list[str]) -> None:
+        """Send ``body`` if it changed since the last report (or after REPORT_REFRESH)."""
+        payload = json.dumps(body.model_dump(mode="json"), sort_keys=True)
+        previous = self._sent.get(path)
+        fresh = previous is not None and self.monotonic() - previous[1] < REPORT_REFRESH
+        if previous is not None and previous[0] == payload and fresh:
+            return
+        try:
+            result = await self.call(method, path, body)
+        except ControllerUnreachableError as exc:
+            errors.append(f"{path}: {exc}")
+            return
+        if result.status // 100 != 2:
+            errors.append(f"{path}: {controller_error(result)}")
+            return
+        self._sent[path] = (payload, self.monotonic())
+
     async def tunnel_statuses(self) -> dict[UUID, list[TunnelStatus]]:
         """States of the tunnels, from each connected instance."""
         found: dict[UUID, list[TunnelStatus]] = {}
@@ -334,6 +431,14 @@ class Agent:
             except StateError as exc:
                 logger.error("tunnels not applied: %s", exc)
             await asyncio.sleep(CONFIG_INTERVAL + random.uniform(-CONFIG_JITTER, CONFIG_JITTER))  # noqa: S311
+
+    async def observe_loop(self) -> None:
+        while True:
+            try:
+                await self.observe()
+            except (OSError, StateError) as exc:
+                logger.error("observation failed: %s", exc)
+            await asyncio.sleep(OBSERVE_INTERVAL)
 
     async def discovery_loop(self) -> None:
         while True:

@@ -1,4 +1,4 @@
-"""Commands of h42-mesh-agent. For now they only validate the configuration."""
+"""Commands of h42-mesh-agent: shared helpers."""
 
 from pathlib import Path
 
@@ -7,7 +7,7 @@ import typer
 from h42mesh.agent.config import AgentConfig, ConfigError, config_path, load_config
 
 EXIT_OK = 0
-EXIT_NOT_IMPLEMENTED = 1
+EXIT_FAILED = 1
 EXIT_INVALID_CONFIG = 2
 
 
@@ -25,8 +25,3 @@ def load_if_present(path: Path | None) -> AgentConfig | None:
     if not config_path(path).exists():
         return None
     return load_or_exit(path)
-
-
-def not_implemented(what: str) -> int:
-    typer.echo(f"{what}: not implemented yet", err=True)
-    return EXIT_NOT_IMPLEMENTED

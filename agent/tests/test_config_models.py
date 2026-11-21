@@ -280,7 +280,7 @@ def test_link_local_peer_refused(address: str) -> None:
         "169.254.1.1",
         "127.0.0.1",
         "224.0.0.1",
-        "0.0.0.0",  # noqa: S104 (an address to refuse, not a bind)
+        "0.0.0.0",
         "2a00:1450:4007:80c::200e",
     ],
 )

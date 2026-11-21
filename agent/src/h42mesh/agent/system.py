@@ -6,6 +6,7 @@ covered by the integration tests (Linux, root).
 
 import asyncio
 import os
+import signal
 import socket
 import subprocess
 from collections.abc import Awaitable, Callable, Sequence
@@ -90,3 +91,31 @@ async def open_unix_connection(
     path: Path,
 ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
     return await asyncio.open_unix_connection(str(path), limit=STREAM_LIMIT)
+
+
+SYS_CLASS_NET = Path("/sys/class/net")
+
+
+def interface_exists(name: str) -> bool:
+    return (SYS_CLASS_NET / name).exists()
+
+
+def interface_master(name: str) -> str | None:
+    """The device the interface is attached to (its VRF), or None."""
+    master = SYS_CLASS_NET / name / "master"
+    try:
+        return os.path.basename(os.readlink(master))
+    except OSError:
+        return None
+
+
+def notify_service(pid: int) -> bool:
+    """Ask the running service to reload agent.toml now (SIGHUP)."""
+    hangup = getattr(signal, "SIGHUP", None)
+    if hangup is None:
+        return False
+    try:
+        os.kill(pid, hangup)
+    except OSError:
+        return False
+    return True

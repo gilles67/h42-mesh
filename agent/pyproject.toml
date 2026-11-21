@@ -12,6 +12,7 @@ dependencies = [
     "pyjwt>=2.10,<3",
     "pyroute2>=0.9,<0.10",
     "requests>=2.32,<3",
+    "tomlkit>=0.13,<1",
     "typer>=0.15,<1",
 ]
 
@@ -43,7 +44,7 @@ src = ["src", "tests"]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "ASYNC", "RUF", "N", "ANN", "S"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106", "S311", "ANN"]
+"tests/**" = ["S101", "S104", "S105", "S106", "S311", "ANN", "ASYNC240"]
 
 [tool.mypy]
 strict = true
