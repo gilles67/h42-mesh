@@ -23,6 +23,8 @@ controller/   API du contrôleur (Python)
 agent/        Agent des routeurs et des VPS (Python)
 gui/          Interface web (TypeScript)
 docs/         Documentation (architecture.md)
+openapi/      Description OpenAPI exportée du contrôleur (controller.json)
+deploy/       Déploiement sur les VPS (Containerfile, Quadlet, Traefik ; README.md)
 ```
 
 ## Composants et technologies

@@ -19,9 +19,12 @@ class AsnReader(Protocol):
     def get(self, ip_address: str) -> object: ...
 
 
-@lru_cache(maxsize=4)
-def open_reader(path: Path) -> AsnReader | None:
-    """Opened once per path; None (logged) if the file cannot be read."""
+@lru_cache(maxsize=2)
+def open_reader(path: Path, mtime_ns: int) -> AsnReader | None:
+    """Opened once per version of the file (geoipupdate replaces it twice a week).
+
+    None (logged) if the file cannot be read.
+    """
     try:
         reader: AsnReader = maxminddb.open_database(str(path))
     except (OSError, ValueError, maxminddb.InvalidDatabaseError) as exc:
@@ -34,7 +37,11 @@ def isp_for(address: str, path: Path | None) -> str | None:
     """Organisation of the AS announcing ``address``, or None if unknown."""
     if path is None:
         return None
-    reader = open_reader(path)
+    try:
+        mtime_ns = path.stat().st_mtime_ns
+    except OSError:  # not downloaded yet: tried again at the next call
+        return None
+    reader = open_reader(path, mtime_ns)
     if reader is None:
         return None
     try:

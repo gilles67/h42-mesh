@@ -1,0 +1,6 @@
+# SQLite database of the controller (/data/h42-mesh.db). Back it up.
+[Volume]
+VolumeName=h42-mesh-data
+# Owned by the controller user of the image.
+User=10001
+Group=10001

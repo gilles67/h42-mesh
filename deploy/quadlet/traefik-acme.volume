@@ -1,0 +1,3 @@
+# Let's Encrypt account and certificates of Traefik (acme.json).
+[Volume]
+VolumeName=traefik-acme

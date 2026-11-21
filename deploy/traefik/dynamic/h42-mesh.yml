@@ -1,0 +1,43 @@
+# Traefik dynamic configuration (h42-mesh): routes.
+# Copied to ~/.config/h42-mesh/traefik/dynamic/, reloaded on change.
+# H42_MESH_DOMAIN comes from ~/.config/h42-mesh/traefik.env (Go template).
+#
+#   /api  -> controller (127.0.0.1:8000)
+#   /     -> GUI: not deployed yet (later: static files container)
+
+http:
+  routers:
+    h42-mesh-controller:
+      rule: 'Host(`{{ env "H42_MESH_DOMAIN" }}`) && PathPrefix(`/api`)'
+      entryPoints:
+        - websecure
+      service: h42-mesh-controller
+      middlewares:
+        - h42-mesh-headers
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    h42-mesh-controller:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://127.0.0.1:8000"
+        healthCheck:
+          path: /api/v1/health
+          interval: 30s
+          timeout: 5s
+
+  middlewares:
+    h42-mesh-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: no-referrer
+
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12

@@ -1,0 +1,35 @@
+# Traefik: single HTTPS entry point, Let's Encrypt certificates.
+# Configured by files only: the Podman socket is NOT mounted.
+# Install in ~/.config/containers/systemd/ of the h42mesh user.
+
+[Unit]
+Description=Traefik (h42-mesh entry point)
+Wants=network-online.target h42-mesh-controller.service
+After=network-online.target
+
+[Container]
+ContainerName=traefik
+# Pin the minor version; check the release notes before changing it.
+Image=docker.io/library/traefik:v3.3
+
+# Host network: Traefik listens on the public ports 80 and 443 and sees the
+# real client addresses (needed by the public address discovery of the agents).
+# Rootless ports below 1024 need net.ipv4.ip_unprivileged_port_start=80.
+Network=host
+
+# Static (traefik.yml) and dynamic (dynamic/*.yml) configuration, read-only.
+Volume=%h/.config/h42-mesh/traefik:/etc/traefik:ro
+# Let's Encrypt account and certificates (acme.json).
+Volume=traefik-acme.volume:/data
+# H42_MESH_DOMAIN, used by the dynamic configuration template.
+EnvironmentFile=%h/.config/h42-mesh/traefik.env
+
+ReadOnly=true
+NoNewPrivileges=true
+DropCapability=ALL
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

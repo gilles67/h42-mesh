@@ -1,0 +1,13 @@
+# Twice a week, as MaxMind updates GeoLite2 (Tuesday and Friday).
+# Install in ~/.config/systemd/user/ of the h42mesh user.
+
+[Unit]
+Description=Update the GeoLite2 ASN database twice a week
+
+[Timer]
+OnCalendar=Tue,Fri *-*-* 05:00:00
+RandomizedDelaySec=2h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

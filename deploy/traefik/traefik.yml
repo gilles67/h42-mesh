@@ -1,0 +1,50 @@
+# Traefik static configuration (h42-mesh).
+# Copied to ~/.config/h42-mesh/traefik/traefik.yml, mounted at /etc/traefik.
+# Traefik reads its static configuration from a single source: everything is
+# here (no command-line flags, no TRAEFIK_* variables).
+
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  level: INFO
+
+accessLog: {}
+
+# No dashboard, no API, no Podman/Docker provider: the socket is never mounted.
+api:
+  dashboard: false
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      # Everything to HTTPS (the ACME HTTP challenge is still answered).
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+    # Incoming X-Forwarded-* headers are not trusted (default): Traefik
+    # replaces them with the real client address it sees.
+    http:
+      tls:
+        certResolver: letsencrypt
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      # CHANGE ME: address for the expiry notices of Let's Encrypt.
+      email: admin@example.org
+      storage: /data/acme.json
+      httpChallenge:
+        entryPoint: web
+      # While testing, use the staging CA to avoid the rate limits:
+      # caServer: https://acme-staging-v02.api.letsencrypt.org/directory

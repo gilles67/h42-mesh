@@ -1,8 +1,10 @@
 """Agent calls: configuration, public addresses, tunnel keys, states, BGP table."""
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
+import maxminddb
 import pytest
 from fastapi.testclient import TestClient
 from httpx2 import Response
@@ -366,7 +368,7 @@ class FakeReader:
 
 def test_isp_from_geolite2(mesh: Mesh, source: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     mesh.world.env.settings.geolite2_asn_file = mesh.world.env.settings.passphrase_file
-    monkeypatch.setattr(geoip, "open_reader", lambda path: FakeReader())
+    monkeypatch.setattr(geoip, "open_reader", lambda path, mtime_ns: FakeReader())
     source("2a00:1450:4007:80c::200e")
     assert address(mesh, mesh.home, mesh.home_conn, "ipv6").json()["isp"] == "Google"
     source("93.184.216.34")  # IPv4 known: it wins
@@ -598,3 +600,27 @@ def test_bgp_table_size_limit(mesh: Mesh) -> None:
 
 def test_empty_bgp_table(mesh: Mesh) -> None:
     assert routes(mesh, mesh.hub, []).status_code == 204
+
+
+def test_geolite2_reopened_when_the_file_changes(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A missing file is retried, and a new version of the file is reopened."""
+    opened: list[int] = []
+
+    def fake_open(path: Any) -> FakeReader:
+        opened.append(path.stat().st_mtime_ns)
+        return FakeReader()
+
+    monkeypatch.setattr(maxminddb, "open_database", lambda p: fake_open(tmp_path / "asn.mmdb"))
+    geoip.open_reader.cache_clear()
+    database = tmp_path / "asn.mmdb"
+    assert geoip.isp_for("93.184.216.34", database) is None  # not downloaded yet
+    database.write_bytes(b"v1")
+    assert geoip.isp_for("93.184.216.34", database) == "Edgecast"
+    assert geoip.isp_for("93.184.216.34", database) == "Edgecast"
+    assert len(opened) == 1  # cached while the file is unchanged
+    os.utime(database, ns=(0, database.stat().st_mtime_ns + 1_000_000_000))
+    assert geoip.isp_for("93.184.216.34", database) == "Edgecast"
+    assert len(opened) == 2
+    geoip.open_reader.cache_clear()

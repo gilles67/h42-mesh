@@ -1,0 +1,44 @@
+# h42-mesh controller (API), rootless, managed by systemd through Quadlet.
+# Install in ~/.config/containers/systemd/ of the h42mesh user.
+
+[Unit]
+Description=h42-mesh controller (API)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName=h42-mesh-controller
+Image=localhost/h42-mesh-controller:latest
+
+# Host network, listening on 127.0.0.1:8000 only (see the image command):
+# Traefik, also on the host network, connects from 127.0.0.1, which
+# controller.env declares as the only trusted proxy. The controller then reads
+# the client address from X-Forwarded-For, set by Traefik.
+Network=host
+
+# SQLite database (read-write) and GeoLite2 ASN database (read-only).
+Volume=h42-mesh-data.volume:/data
+Volume=h42-mesh-geoip.volume:/geoip:ro
+
+# Passphrase that encrypts the secrets stored in the database.
+Secret=h42-mesh-passphrase,type=mount,target=/run/secrets/h42-mesh-passphrase,uid=10001,gid=10001,mode=0400
+Environment=H42_MESH_PASSPHRASE_FILE=/run/secrets/h42-mesh-passphrase
+Environment=H42_MESH_GEOLITE2_ASN_FILE=/geoip/GeoLite2-ASN.mmdb
+# Site settings (trusted proxies, JWT audience, sessions…).
+EnvironmentFile=%h/.config/h42-mesh/controller.env
+
+HealthCmd=python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"
+HealthInterval=30s
+HealthStartPeriod=60s
+
+ReadOnly=true
+NoNewPrivileges=true
+DropCapability=ALL
+
+[Service]
+Restart=always
+# First start: migrations and admin creation.
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

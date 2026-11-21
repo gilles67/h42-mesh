@@ -1,0 +1,24 @@
+# Download or update the GeoLite2 ASN database (MaxMind account required).
+# Run by geoipupdate.timer twice a week; not started at boot.
+# Install in ~/.config/containers/systemd/ of the h42mesh user.
+
+[Unit]
+Description=Update the MaxMind GeoLite2 ASN database
+
+[Container]
+ContainerName=geoipupdate
+Image=ghcr.io/maxmind/geoipupdate:v7
+Volume=h42-mesh-geoip.volume:/usr/share/GeoIP
+Secret=geoipupdate-license-key,type=mount,target=/run/secrets/geoipupdate-license-key,mode=0400
+Environment=GEOIPUPDATE_EDITION_IDS=GeoLite2-ASN
+Environment=GEOIPUPDATE_DB_DIR=/usr/share/GeoIP
+Environment=GEOIPUPDATE_LICENSE_KEY_FILE=/run/secrets/geoipupdate-license-key
+# GEOIPUPDATE_ACCOUNT_ID
+EnvironmentFile=%h/.config/h42-mesh/geoipupdate.env
+NoNewPrivileges=true
+DropCapability=ALL
+
+[Service]
+Type=oneshot
+Restart=no
+TimeoutStartSec=600
