@@ -26,7 +26,18 @@ Python, FastAPI, Pydantic, Tortoise ORM ; SQLite (PostgreSQL possible, même cod
 | `H42_MESH_PASSPHRASE_FILE` | Fichier contenant la phrase secrète de chiffrement des secrets en base (secret Podman) |
 | `H42_MESH_GEOLITE2_ASN_FILE` | Base GeoLite2 ASN de MaxMind ; facultative (sans elle, `isp` reste vide) |
 
-*Proposition* : d'autres réglages (durée des sessions, durée de validité des jetons d'enrôlement, audience des JWT) avec des valeurs par défaut, modifiables par variable d'environnement.
+Réglages des sessions de l'interface, avec leur valeur par défaut :
+
+| Variable | Défaut | Rôle |
+| --- | --- | --- |
+| `H42_MESH_SESSION_LIFETIME_MINUTES` | 720 (12 h) | Durée totale d'une session |
+| `H42_MESH_SESSION_IDLE_MINUTES` | 30 | Expiration après inactivité |
+| `H42_MESH_PENDING_LOGIN_MINUTES` | 5 | Délai pour saisir le code TOTP après le mot de passe |
+| `H42_MESH_SESSION_COOKIE_SECURE` | `true` | Cookie réservé à HTTPS ; `false` seulement en développement local en HTTP |
+| `H42_MESH_MAX_FAILED_LOGINS` | 5 | Échecs consécutifs (mot de passe ou code TOTP) avant blocage |
+| `H42_MESH_LOCKOUT_MINUTES` | 15 | Durée du blocage |
+
+*Proposition* : d'autres réglages (durée de validité des jetons d'enrôlement, audience des JWT) avec des valeurs par défaut, modifiables par variable d'environnement.
 
 ## Démarrage
 

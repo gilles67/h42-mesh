@@ -4,7 +4,14 @@ import pytest
 from tortoise.exceptions import IntegrityError, ValidationError
 
 from factories import FAKE_SECRET, digest, in_hours, make_mesh, make_user
-from h42mesh.controller.models import Mesh, MeshAccess, MeshAccessLevel, User, UserSession
+from h42mesh.controller.models import (
+    Mesh,
+    MeshAccess,
+    MeshAccessLevel,
+    SessionStage,
+    User,
+    UserSession,
+)
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -66,7 +73,11 @@ async def test_mesh_access_unique_per_user_and_mesh() -> None:
 async def test_user_session() -> None:
     user = await make_user()
     await UserSession.create(
-        user=user, token_hash=digest("s1"), expires_at=in_hours(12), last_seen_at=in_hours(0)
+        stage=SessionStage.AUTHENTICATED,
+        user=user,
+        token_hash=digest("s1"),
+        expires_at=in_hours(12),
+        last_seen_at=in_hours(0),
     )
     assert await user.sessions.all().count() == 1
 
@@ -74,15 +85,27 @@ async def test_user_session() -> None:
 async def test_session_token_hash_unique_and_validated() -> None:
     user = await make_user()
     await UserSession.create(
-        user=user, token_hash=digest("s1"), expires_at=in_hours(12), last_seen_at=in_hours(0)
+        stage=SessionStage.AUTHENTICATED,
+        user=user,
+        token_hash=digest("s1"),
+        expires_at=in_hours(12),
+        last_seen_at=in_hours(0),
     )
     with pytest.raises(IntegrityError):
         await UserSession.create(
-            user=user, token_hash=digest("s1"), expires_at=in_hours(12), last_seen_at=in_hours(0)
+            stage=SessionStage.AUTHENTICATED,
+            user=user,
+            token_hash=digest("s1"),
+            expires_at=in_hours(12),
+            last_seen_at=in_hours(0),
         )
     with pytest.raises(ValidationError):
         await UserSession.create(
-            user=user, token_hash="raw-token", expires_at=in_hours(12), last_seen_at=in_hours(0)
+            stage=SessionStage.AUTHENTICATED,
+            user=user,
+            token_hash="raw-token",
+            expires_at=in_hours(12),
+            last_seen_at=in_hours(0),
         )
 
 

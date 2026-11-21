@@ -5,7 +5,7 @@ from tortoise.backends.base.client import BaseDBAsyncClient
 from tortoise.exceptions import IntegrityError
 
 from h42mesh.controller.models.base import BaseModel
-from h42mesh.controller.models.enums import MeshAccessLevel
+from h42mesh.controller.models.enums import MeshAccessLevel, SessionStage
 from h42mesh.controller.models.validators import SHA256_HEX_VALIDATOR
 
 if TYPE_CHECKING:
@@ -28,6 +28,8 @@ class User(BaseModel):
     must_change_password = fields.BooleanField(default=True)
     # Encrypted secret (JSON object: v, kdf, salt, nonce, ciphertext).
     totp_secret: dict[str, Any] | None = fields.JSONField(null=True)
+    # Last accepted TOTP time step (30 s window): a code cannot be replayed.
+    totp_last_step = fields.BigIntField(null=True)
     is_admin = fields.BooleanField(default=False)
     can_create_meshes = fields.BooleanField(default=False)
     failed_login_count = fields.IntField(default=0)
@@ -87,6 +89,7 @@ class UserSession(BaseModel):
         "models.User", related_name="sessions", on_delete=fields.CASCADE
     )
     token_hash = fields.CharField(max_length=64, unique=True, validators=[SHA256_HEX_VALIDATOR])
+    stage = fields.CharEnumField(SessionStage, max_length=16)
     expires_at = fields.DatetimeField()
     last_seen_at = fields.DatetimeField()  # expiry after inactivity
 

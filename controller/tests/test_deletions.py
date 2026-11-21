@@ -24,6 +24,7 @@ from h42mesh.controller.models import (
     MeshAccess,
     MeshAccessLevel,
     Router,
+    SessionStage,
     Site,
     Tunnel,
     TunnelStatus,
@@ -145,7 +146,11 @@ async def test_user_deletion_cascades() -> None:
     mesh = await make_mesh(created_by=user)
     await MeshAccess.create(user=user, mesh=mesh, level=MeshAccessLevel.MANAGE)
     await UserSession.create(
-        user=user, token_hash=digest("s"), expires_at=in_hours(1), last_seen_at=in_hours(0)
+        stage=SessionStage.AUTHENTICATED,
+        user=user,
+        token_hash=digest("s"),
+        expires_at=in_hours(1),
+        last_seen_at=in_hours(0),
     )
     router = await make_router(await make_site(mesh))
     await make_token(router, user)

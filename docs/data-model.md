@@ -38,6 +38,7 @@ User ──< MeshAccess >── Mesh ──< Site ──< Router ──< Connect
 | `password_hash` | texte | | Empreinte du mot de passe (Argon2) |
 | `must_change_password` | booléen | défaut vrai | Changement obligatoire à la première connexion |
 | `totp_secret` | JSON, chiffré | facultatif | Secret de la double authentification |
+| `totp_last_step` | entier | facultatif | Numéro de la dernière fenêtre TOTP (30 s) acceptée : un code ne peut pas être rejoué |
 | `is_admin` | booléen | défaut faux | Administrateur ; **un seul compte** l'a, créé à l'installation |
 | `can_create_meshes` | booléen | défaut faux | Droit de créer des maillages, donné par l'administrateur |
 | `failed_login_count` | entier | défaut 0 | Limitation des tentatives |
@@ -62,6 +63,7 @@ Unicité : (`user`, `mesh`). L'administrateur n'a pas besoin de ligne ici : il a
 | --- | --- | --- | --- |
 | `user` | → `User` | | |
 | `token_hash` | texte | unique | Empreinte du jeton porté par le cookie |
+| `stage` | `totp_pending` / `authenticated` | | `totp_pending` : mot de passe vérifié, code TOTP attendu (session de quelques minutes, qui n'ouvre que l'envoi du code) ; `authenticated` : session complète, avec un nouveau jeton |
 | `expires_at` | date | | |
 | `last_seen_at` | date | | Expiration après inactivité |
 

@@ -12,6 +12,7 @@ from h42mesh.controller.models.enums import (
     ConnectionRole,
     DirectMode,
     MeshAccessLevel,
+    SessionStage,
 )
 from h42mesh.controller.models.mesh import Mesh
 from h42mesh.controller.models.router import Router
@@ -31,6 +32,7 @@ __all__ = [
     "MeshAccess",
     "MeshAccessLevel",
     "Router",
+    "SessionStage",
     "Site",
     "Tunnel",
     "TunnelStatus",

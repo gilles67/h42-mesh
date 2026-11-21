@@ -31,3 +31,8 @@ class BgpRouteSource(StrEnum):
     LOCAL = "local"  # announced by this router
     TUNNEL = "tunnel"  # learnt through a tunnel (eBGP)
     INTERNAL = "internal"  # learnt from the other router of the site (iBGP)
+
+
+class SessionStage(StrEnum):
+    TOTP_PENDING = "totp_pending"  # password verified, TOTP code still expected
+    AUTHENTICATED = "authenticated"

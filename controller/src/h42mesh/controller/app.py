@@ -5,7 +5,8 @@ Run locally with ``uvicorn h42mesh.controller.app:create_app --factory``.
 Startup (docs/specs/controller.md):
 1. read the passphrase;
 2. apply the migrations;
-3. check that the passphrase decrypts the stored secrets, if any.
+3. check that the passphrase decrypts the stored secrets, if any;
+4. create the administrator if the database has no user.
 """
 
 import logging
@@ -18,10 +19,11 @@ from tortoise import Tortoise
 from tortoise.contrib.fastapi import RegisterTortoise
 from tortoise.migrations.api.migrate import migrate
 
-from h42mesh.controller import __version__, encryption
+from h42mesh.controller import __version__, bootstrap, encryption
 from h42mesh.controller.api import API_PREFIX
 from h42mesh.controller.api import router as api_router
 from h42mesh.controller.db import build_tortoise_config
+from h42mesh.controller.errors import install_error_handlers
 from h42mesh.controller.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -37,7 +39,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        bootstrap.configure_logging()
         current = settings or get_settings()
+        app.state.settings = current
         encryption.configure_from_settings(current)
         config = build_tortoise_config(current.database_url)
         logger.info("applying database migrations")
@@ -48,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 logger.info("passphrase checked against a stored secret")
             else:
                 logger.info("no stored secret yet: passphrase not checked")
+            await bootstrap.ensure_admin()
             yield
         encryption.reset()
 
@@ -62,5 +67,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
         generate_unique_id_function=operation_id,
     )
+    install_error_handlers(app)
     app.include_router(api_router)
     return app

@@ -1,7 +1,7 @@
 from tortoise import migrations
 from tortoise.migrations import operations as ops
 import functools
-from h42mesh.controller.models.enums import AddressFamily, BgpRouteSource, ConnectionRole, DirectMode, MeshAccessLevel
+from h42mesh.controller.models.enums import AddressFamily, BgpRouteSource, ConnectionRole, DirectMode, MeshAccessLevel, SessionStage
 from json import dumps, loads
 from tortoise.fields.base import OnDelete
 from uuid import uuid4
@@ -21,6 +21,7 @@ class Migration(migrations.Migration):
                 ('password_hash', fields.CharField(max_length=255)),
                 ('must_change_password', fields.BooleanField(default=True)),
                 ('totp_secret', fields.JSONField(null=True, encoder=functools.partial(dumps, separators=(',', ':')), decoder=loads)),
+                ('totp_last_step', fields.BigIntField(null=True)),
                 ('is_admin', fields.BooleanField(default=False)),
                 ('can_create_meshes', fields.BooleanField(default=False)),
                 ('failed_login_count', fields.IntField(default=0)),
@@ -201,6 +202,7 @@ class Migration(migrations.Migration):
                 ('updated_at', fields.DatetimeField(auto_now=True, auto_now_add=False)),
                 ('user', fields.ForeignKeyField('models.User', source_field='user_id', db_constraint=True, to_field='id', related_name='sessions', on_delete=OnDelete.CASCADE)),
                 ('token_hash', fields.CharField(unique=True, max_length=64)),
+                ('stage', fields.CharEnumField(description='TOTP_PENDING: totp_pending\nAUTHENTICATED: authenticated', enum_type=SessionStage, max_length=16)),
                 ('expires_at', fields.DatetimeField(auto_now=False, auto_now_add=False)),
                 ('last_seen_at', fields.DatetimeField(auto_now=False, auto_now_add=False)),
             ],
