@@ -9,7 +9,9 @@ from tortoise.context import TortoiseContext, tortoise_test_context
 from api_helpers import (
     ADMIN_NEW_PASSWORD,
     Env,
+    World,
     admin_password_from_log,
+    build_world,
     first_login,
     install_clock,
     make_settings,
@@ -44,3 +46,9 @@ def admin(env: Env) -> Env:
     """Administrator logged in, first-login setup done."""
     first_login(env.client, env.clock, "admin", env.admin_password, ADMIN_NEW_PASSWORD)
     return env
+
+
+@pytest.fixture
+def world(admin: Env) -> World:
+    """See api_helpers.World: one mesh, its inventory and one user per role."""
+    return build_world(admin)

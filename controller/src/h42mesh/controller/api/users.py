@@ -1,15 +1,21 @@
-"""User management, administrator only."""
+"""User management, administrator only; lookup by username for mesh managers."""
 
 from uuid import UUID
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 from tortoise.exceptions import IntegrityError
 
-from h42mesh.controller.api.deps import AdminUser
+from h42mesh.controller.api.deps import AdminUser, CurrentUser
 from h42mesh.controller.auth import passwords
 from h42mesh.controller.errors import ApiError, error_responses
-from h42mesh.controller.models import User
-from h42mesh.controller.schemas.users import UserCreate, UserCreated, UserRead, UserUpdate
+from h42mesh.controller.models import MeshAccess, MeshAccessLevel, User
+from h42mesh.controller.schemas.users import (
+    UserCreate,
+    UserCreated,
+    UserRead,
+    UserSummary,
+    UserUpdate,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 ADMIN_ERRORS = error_responses(401, 403)
@@ -38,6 +44,32 @@ async def _get_user(user_id: UUID) -> User:
     if user is None:
         raise ApiError(status.HTTP_404_NOT_FOUND, "user_not_found", "No such user")
     return user
+
+
+# Declared before "/{user_id}", which would otherwise capture "lookup".
+@router.get(
+    "/lookup",
+    response_model=UserSummary,
+    responses=error_responses(401, 403, 404),
+    summary="Find a user by exact username",
+)
+async def lookup_user(
+    user: CurrentUser, username: str = Query(min_length=1, max_length=64)
+) -> UserSummary:
+    """For mesh managers, to grant an access: returns only the id and username.
+
+    Allowed to the administrator and to users who manage at least one mesh.
+    """
+    if not user.is_admin and not await MeshAccess.exists(
+        user_id=user.id, level=MeshAccessLevel.MANAGE
+    ):
+        raise ApiError(
+            status.HTTP_403_FORBIDDEN, "manage_required", "Manage access to a mesh required"
+        )
+    found = await User.get_or_none(username=username)
+    if found is None:
+        raise ApiError(status.HTTP_404_NOT_FOUND, "user_not_found", "No such user")
+    return UserSummary(id=found.id, username=found.username)
 
 
 @router.get("", response_model=list[UserRead], responses=ADMIN_ERRORS, summary="List users")

@@ -27,6 +27,10 @@ def not_authenticated() -> ApiError:
     return ApiError(status.HTTP_401_UNAUTHORIZED, "not_authenticated", "Authentication required")
 
 
+def conflict(code: str, message: str) -> ApiError:
+    return ApiError(status.HTTP_409_CONFLICT, code, message)
+
+
 async def _handle_api_error(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, ApiError)  # noqa: S101 (registered for ApiError only)
     body = ErrorResponse(code=exc.code, message=exc.message)

@@ -37,3 +37,10 @@ class UserUpdate(BaseModel):
 
     username: Username | None = None
     can_create_meshes: bool | None = None
+
+
+class UserSummary(BaseModel):
+    """What a mesh manager may learn about a user: enough to grant an access."""
+
+    id: UUID
+    username: str
