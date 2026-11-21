@@ -194,6 +194,6 @@ uv run ruff check . && uv run ruff format --check .
 uv run mypy
 uv run pytest
 uv run h42-mesh-agent --config tests/data/agent.toml status   # configuration par défaut : /etc/h42-mesh/agent.toml
-sudo H42_MESH_AGENT_INTEGRATION=1 uv run pytest -m integration   # tests système (Linux, root : VRF, ip vrf exec)
+sudo H42_MESH_AGENT_INTEGRATION=1 uv run pytest -m integration   # tests système (Linux, root : VRF, ip vrf exec ; wireguard-go et wg installés)
 # interface : à définir
 ```

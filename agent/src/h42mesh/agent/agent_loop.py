@@ -3,14 +3,17 @@
 - each request gets a fresh JWT and goes through the best connected instance
   (active connections by priority, then backup ones), the next one on failure;
 - the configuration is polled with If-None-Match; a valid new one is stored;
-- each instance discovers the public addresses of its own connection.
+- each instance discovers the public addresses of its own connection;
+- the tunnels: keys and ports kept in state_dir and reported to the
+  controller, wanted tunnels sent to the instance of each connection (which
+  applies them with the tunnel backend).
 """
 
 import asyncio
 import logging
 import random
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -19,7 +22,15 @@ from pydantic import ValidationError
 from h42mesh.agent.config import AgentConfig, ConnectionSettings
 from h42mesh.agent.ipc.channel import WorkerUnavailableError
 from h42mesh.agent.ipc.hub import WorkerHub
-from h42mesh.agent.ipc.protocol import HttpCall, HttpResult, b64
+from h42mesh.agent.ipc.protocol import (
+    HttpCall,
+    HttpResult,
+    TunnelsApplied,
+    TunnelsApply,
+    TunnelStatuses,
+    TunnelStatusQuery,
+    b64,
+)
 from h42mesh.agent.messages import (
     API_PREFIX,
     AddressFamily,
@@ -28,10 +39,13 @@ from h42mesh.agent.messages import (
     PublicAddressResult,
     Request,
     RouterConfig,
+    TunnelKeysReport,
 )
 from h42mesh.agent.selection import connection_order
 from h42mesh.agent.signing import TokenSigner
-from h42mesh.agent.state import StateError, StateStore, StoredConfig
+from h42mesh.agent.state import StateError, StateStore, StoredConfig, TunnelState
+from h42mesh.agent.tunnels.backend import TunnelStatus
+from h42mesh.agent.tunnels.plan import TunnelPlan, plan_tunnels
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +92,7 @@ class Agent:
     signer: TokenSigner
     hub: WorkerHub
     now: Callable[[], datetime] = lambda: datetime.now(UTC)
+    _tunnels_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
 
     # --- requests ------------------------------------------------------------
 
@@ -197,9 +212,100 @@ class Agent:
         return found
 
     async def on_instance_connected(self, uid: UUID) -> None:
+        """A (re)started instance has no tunnel: give it its tunnels first."""
         settings = next((c for c in self.config.connections if c.uid == uid), None)
         if settings is not None:
+            await self.apply_tunnels(only=uid)
             await self.discover_addresses(settings)
+
+    # --- tunnels -------------------------------------------------------------
+
+    def _tunnel_states(self) -> dict[UUID, TunnelState]:
+        states = {}
+        for tunnel_id in self.store.tunnel_ids():
+            try:
+                state = self.store.load_tunnel(tunnel_id)
+            except StateError as exc:
+                logger.error("%s: a new key will be generated", exc)
+                continue
+            if state is not None:
+                states[tunnel_id] = state
+        return states
+
+    async def apply_tunnels(self, only: UUID | None = None) -> TunnelPlan | None:
+        """Keys and ports, report to the controller, then the tunnels of each
+        connected instance (or of ``only``). Runs with the stored configuration:
+        the tunnels are applied even if the controller cannot be reached."""
+        async with self._tunnels_lock:
+            stored = self.store.load_config()
+            if stored is None:
+                return None
+            plan = plan_tunnels(stored.config, self.config, self._tunnel_states())
+            for tunnel_id in plan.changed:
+                self.store.save_tunnel(plan.states[tunnel_id])
+            for tunnel_id, reason in plan.pending.items():
+                logger.info("tunnel %s waits: %s", tunnel_id, reason)
+            await self._report_tunnel_keys(plan)
+            for settings in self.config.connections:
+                if only is None or settings.uid == only:
+                    await self._send_tunnels(settings.uid, plan)
+            # The interfaces of a removed tunnel need no key to be deleted.
+            for tunnel_id in plan.obsolete:
+                self.store.delete_tunnel(tunnel_id)
+            return plan
+
+    async def _report_tunnel_keys(self, plan: TunnelPlan) -> None:
+        if not plan.to_report:
+            return
+        try:
+            result = await self.call(
+                "POST", "/agent/tunnels", TunnelKeysReport(tunnels=plan.to_report)
+            )
+        except ControllerUnreachableError as exc:
+            logger.info("tunnel keys not reported: %s", exc)
+            return
+        if result.status // 100 != 2:
+            logger.warning("tunnel keys not reported: %s", controller_error(result))
+            return
+        for report in plan.to_report:
+            state = plan.states[report.tunnel_id].model_copy(
+                update={"public_key_registered": True, "port_registered": True}
+            )
+            plan.states[report.tunnel_id] = state
+            self.store.save_tunnel(state)
+        logger.info("%d tunnel keys reported", len(plan.to_report))
+
+    async def _send_tunnels(self, uid: UUID, plan: TunnelPlan) -> None:
+        link = self.hub.get(uid)
+        number = plan.numbers.get(uid)
+        if link is None:
+            return
+        if number is None:
+            logger.warning("connection %s is not a connection of the router", uid)
+            return
+        message = TunnelsApply(id=0, connection_number=number, tunnels=plan.specs.get(uid, []))
+        try:
+            applied = await link.request(message, TunnelsApplied)
+        except WorkerUnavailableError as exc:
+            logger.warning("tunnels of %s not applied: %s", uid, exc)
+            return
+        for name, error in applied.errors.items():
+            logger.error("tunnel %s: %s", name, error)
+
+    async def tunnel_statuses(self) -> dict[UUID, list[TunnelStatus]]:
+        """States of the tunnels, from each connected instance."""
+        found: dict[UUID, list[TunnelStatus]] = {}
+        for settings in self.config.connections:
+            link = self.hub.get(settings.uid)
+            if link is None:
+                continue
+            try:
+                answer = await link.request(TunnelStatusQuery(id=0), TunnelStatuses)
+            except WorkerUnavailableError as exc:
+                logger.warning("tunnel states of %s: %s", settings.uid, exc)
+                continue
+            found[settings.uid] = answer.tunnels
+        return found
 
     # --- loops ---------------------------------------------------------------
 
@@ -209,6 +315,10 @@ class Agent:
                 await self.refresh_config()
             except (ControllerUnreachableError, ControllerError, ConfigRejectedError) as exc:
                 logger.warning("configuration not refreshed: %s", exc)
+            try:
+                await self.apply_tunnels()  # idempotent: nothing done if nothing changed
+            except StateError as exc:
+                logger.error("tunnels not applied: %s", exc)
             await asyncio.sleep(CONFIG_INTERVAL + random.uniform(-CONFIG_JITTER, CONFIG_JITTER))  # noqa: S311
 
     async def discovery_loop(self) -> None:

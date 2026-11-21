@@ -216,6 +216,12 @@ Dans le dossier d'état de l'agent (`state_dir`, `/var/lib/h42-mesh` par défaut
 
 Le processus principal est le seul à lire et écrire ces fichiers. Il transmet à chaque instance de connexion, par la socket Unix locale, la partie de la configuration qui la concerne : ses tunnels, avec leurs clés et leurs ports. Les instances ne stockent rien elles-mêmes.
 
+- **Messages** : `tunnels_apply` (numéro de la connexion et **tous** ses tunnels voulus ; les autres sont supprimés), avec la réponse `tunnels_applied` (tunnels créés, mis à jour, supprimés, erreurs). Pour les états : `tunnel_status_query` et sa réponse `tunnel_statuses`.
+- **Quand** :
+  - à la connexion de chaque instance, avant la reconnaissance des adresses, avec la configuration stockée : les tunnels se rétablissent même si le contrôleur est injoignable ;
+  - puis à chaque passage de la boucle de configuration (toutes les 30 s). L'envoi est sans effet si rien n'a changé.
+- **Clés et ports** : le processus principal génère la clé et choisit le port d'un nouveau tunnel : le plus petit port libre de la plage du routeur, intersection avec celle de la connexion ; un port n'est utilisé qu'une fois sur le routeur. Il les remonte (`POST /agent/tunnels`) tant que la configuration reçue ne les contient pas. L'état local d'un tunnel est supprimé dès que le tunnel disparaît de la configuration : supprimer son interface ne demande pas sa clé.
+
 `status` affiche l'empreinte et la date de la configuration appliquée, et depuis quand le contrôleur n'a pas été joint.
 
 ## Boucle principale
@@ -247,6 +253,43 @@ Toute la gestion des tunnels WireGuard passe par un **module dédié** (*backend
 
 Le reste de l'agent (boucle de réconciliation, FRR, remontées) ne connaît que cette interface et ne sait pas quelle implémentation est utilisée. Première implémentation : wireguard-go. Si le test de performances (voir [todo.md](../todo.md)) montre qu'il ne convient pas, seule une autre implémentation de ce module est à écrire (par exemple le module du noyau dans un espace de noms réseau par connexion).
 
+### Interface (paquet `h42mesh.agent.tunnels`)
+
+- `backend.py` : l'interface `TunnelBackend` (*Protocol* : `create`, `update`, `delete`, `status`, `list`, `close`). Elle utilise deux modèles Pydantic :
+  - `TunnelSpec` : l'état voulu d'une extrémité (nom d'interface, côté, clé privée, port, clé publique distante, PSK, adresses /31 et /127, adresses distantes du côté `b` dans l'ordre de préférence, keepalive, délais du repli) ;
+  - `TunnelStatus` : l'état observé (processus en marche, famille utilisée, adresse distante, dernière poignée de main, compteurs, relances).
+- Un backend gère les tunnels d'**une** connexion : il tourne dans l'instance de cette connexion et ne voit que les interfaces `wd<maillage>c<connexion>…`.
+- L'implémentation n'est choisie qu'à un seul endroit, la fabrique de l'instance de connexion (`worker.py`). Un test vérifie qu'aucun autre module n'importe `wireguard_go`.
+- `reconcile.py` (dans l'instance) : compare les tunnels voulus à ceux qui existent (`list()`) et n'applique que les différences. Il supprime ceux en trop, crée ceux qui manquent, met à jour ceux qui ont changé. Une erreur sur un tunnel n'empêche pas de traiter les autres.
+- `plan.py` (processus principal, fonctions pures) : calcule, à partir de la configuration reçue, de `agent.toml` et des états stockés, les clés et ports de chaque tunnel et les `TunnelSpec` de chaque connexion. Il liste aussi les tunnels en attente :
+  - clé publique distante inconnue ;
+  - côté `b` sans adresse ni port de `a` ;
+  - connexion absente de `agent.toml` ;
+  - pas de port libre.
+- Les tests de la boucle utilisent une implémentation factice (`tests/fake_tunnel_backend.py`).
+
+### Implémentation wireguard-go (`wireguard_go.py`)
+
+- Un processus `wireguard-go -f <interface>` par tunnel, enfant de l'instance de connexion : il hérite de sa VRF, et son interface reste dans la VRF par défaut.
+- Configuration par `wg syncconf <interface> /dev/stdin`. Les secrets passent par l'entrée standard, jamais par un fichier ni par les arguments ; `syncconf` n'applique que les différences.
+  - `AllowedIPs` `0.0.0.0/0, ::/0` ;
+  - PSK ;
+  - côté `b` : adresse et port de `a`, `PersistentKeepalive = 25`.
+- Interface (pyroute2) : `addr_gen_mode=1` (pas d'adresse fe80:: ajoutée par le noyau), `rp_filter=2`, exactement les deux adresses du tunnel, puis mise en service.
+- **Surveillance** : le processus est relancé s'il s'arrête (1 s, puis 2, 4… jusqu'à 60 s, délai remis à 1 s après 5 min de fonctionnement), puis toute la configuration est réappliquée. Si la création échoue, rien n'est laissé (processus arrêté, interface supprimée).
+- **Interface restée** d'une instance précédente (arrêt brutal) : supprimée puis recréée, car son processus n'est pas un enfant de la nouvelle instance.
+- L'arrêt de l'instance arrête ses tunnels.
+- Clés X25519 générées par l'agent (bibliothèque cryptography, comme `wg genkey`).
+
+### Repli IPv6 → IPv4 (côté `b`, `fallback.py`)
+
+- Les adresses de `a` retenues sont celles des familles du tunnel, IPv6 d'abord.
+- Sans poignée de main `fallback_delay` secondes après un changement, l'adresse suivante est essayée : IPv4, ou de nouveau IPv6 si l'IPv4 échoue aussi.
+- En IPv4, l'IPv6 est retentée toutes les `ipv6_retry` secondes.
+- Une famille dont la dernière poignée de main a plus de 180 s n'est plus considérée comme établie.
+- À chaque changement, le pair est retiré puis remis : cela force une poignée de main immédiate sur la nouvelle adresse. Ce mécanisme provoque des coupures, à améliorer (voir [todo.md](../todo.md)).
+- La famille utilisée est donnée par `status()`. Son envoi au contrôleur (`PUT /agent/tunnel-status`) fait partie de l'étape 8 de la boucle principale.
+
 ## Échanges avec le contrôleur
 
 - Toutes les requêtes (configuration, remontées, reconnaissance des adresses) partent de la VRF d'une connexion internet, en essayant d'abord les connexions actives par ordre de priorité, puis les connexions de secours. Elles sont émises par l'instance de la connexion, qui est déjà dans sa VRF (voir « Organisation en processus »). La reconnaissance des adresses d'une connexion est toujours faite par sa propre instance.
@@ -268,7 +311,7 @@ Le reste de l'agent (boucle de réconciliation, FRR, remontées) ne connaît que
 | `wg` (wireguard-tools) | Configuration des tunnels, appelé comme programme séparé | GPL, non intégré |
 | FRR (`vtysh`) | BGP, BFD | GPL, non intégré |
 | keepalived | VRRP | GPL, non intégré |
-| pyroute2 | Interfaces, adresses, VRF | Apache 2.0 / GPL (double licence) |
+| pyroute2 | Interfaces, adresses, VRF | Apache 2.0 / GPL (double licence), utilisé sous Apache 2.0 ; importé seulement sous Linux |
 | dnspython (*proposition*) | Client DNS intégré | ISC |
 
 ## Tests

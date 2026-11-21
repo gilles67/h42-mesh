@@ -46,3 +46,12 @@ Sujets reportés, à reprendre plus tard. Chaque entrée dit ce qui était prév
   - latence et gigue ;
   - montage complet : processus lancé avec `ip vrf exec` dans la VRF d'une connexion, interface dans la VRF par défaut.
 - **Si les résultats sont insuffisants** : revoir le choix du plan de données (par exemple le module du noyau avec un espace de noms réseau par connexion, ou une autre implémentation en espace utilisateur).
+
+## Repli IPv6 → IPv4 : coupures lors des nouveaux essais en IPv6
+
+- **Fonctionnement actuel** (première implémentation, `agent/src/h42mesh/agent/tunnels/fallback.py`) : une interface WireGuard n'a qu'un pair, donc une seule adresse distante à la fois. À chaque changement de famille, le côté `b` retire puis remet le pair, pour forcer une nouvelle poignée de main sur la nouvelle adresse. Sans cela, la session en cours continuerait sur la nouvelle adresse sans poignée de main à observer, jusqu'au renouvellement des clés (2 min).
+- **Point d'attention** : un tunnel replié en IPv4 retente l'IPv6 toutes les `ipv6_retry` (10 min par défaut). Si l'IPv6 est toujours en panne, le tunnel est coupé pendant au plus `fallback_delay` (30 s par défaut) à chaque essai, et la session BGP du tunnel peut tomber. BGP passe alors par un autre tunnel, s'il en existe un.
+- **Pistes d'amélioration** :
+  - tester l'IPv6 sans toucher au tunnel en service, par exemple avec une seconde interface de test, ou une sonde UDP vers le port de l'autre extrémité ;
+  - espacer les essais quand ils échouent plusieurs fois de suite ;
+  - faire de l'IPv6 et de l'IPv4 deux tunnels distincts, laissés au choix de BGP. Cela change le modèle de données et est à discuter.

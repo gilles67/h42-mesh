@@ -7,11 +7,15 @@ import logging
 from uuid import UUID
 
 from h42mesh.agent.ipc.protocol import (
+    AnswerMessage,
+    AnyMessage,
     CallFailed,
-    Hello,
+    CallMessage,
     HttpCall,
     HttpResult,
     ProtocolError,
+    TunnelsApplied,
+    TunnelStatuses,
     decode,
     encode,
 )
@@ -20,7 +24,7 @@ logger = logging.getLogger(__name__)
 HELLO_TIMEOUT = 10.0
 CALL_TIMEOUT = 60.0
 
-AnyMessage = Hello | HttpCall | HttpResult | CallFailed
+__all__ = ["CALL_TIMEOUT", "HELLO_TIMEOUT", "AnyMessage", "Channel", "WorkerLink"]
 
 
 class Channel:
@@ -63,14 +67,15 @@ class WorkerLink:
         self.uid = uid
         self.channel = channel
         self._ids = itertools.count(1)
-        self._pending: dict[int, asyncio.Future[HttpResult | CallFailed]] = {}
+        self._pending: dict[int, asyncio.Future[AnswerMessage]] = {}
         self.closed = asyncio.Event()
 
     async def read_loop(self) -> None:
         """Dispatch answers until the instance disconnects."""
+        answers = (HttpResult, TunnelsApplied, TunnelStatuses, CallFailed)
         try:
             while (message := await self.channel.receive()) is not None:
-                if isinstance(message, HttpResult | CallFailed):
+                if isinstance(message, answers):
                     future = self._pending.pop(message.id, None)
                     if future is not None and not future.done():
                         future.set_result(message)
@@ -85,19 +90,27 @@ class WorkerLink:
                     future.set_exception(WorkerUnavailableError(f"instance {self.uid} gone"))
             self._pending.clear()
 
-    async def call(self, call: HttpCall, call_timeout: float = CALL_TIMEOUT) -> HttpResult:
+    async def request[A: AnswerMessage](
+        self, message: CallMessage, answer_type: type[A], call_timeout: float = CALL_TIMEOUT
+    ) -> A:
+        """Send ``message`` (its id is replaced) and wait for its answer."""
         if self.closed.is_set():
             raise WorkerUnavailableError(f"instance {self.uid} is disconnected")
-        call = call.model_copy(update={"id": next(self._ids)})
-        future: asyncio.Future[HttpResult | CallFailed] = asyncio.get_running_loop().create_future()
-        self._pending[call.id] = future
+        message = message.model_copy(update={"id": next(self._ids)})
+        future: asyncio.Future[AnswerMessage] = asyncio.get_running_loop().create_future()
+        self._pending[message.id] = future
         try:
-            await self.channel.send(call)
+            await self.channel.send(message)
             answer = await asyncio.wait_for(future, call_timeout)
         except (ConnectionError, OSError, TimeoutError) as exc:
             raise WorkerUnavailableError(f"instance {self.uid}: {exc!r}") from exc
         finally:
-            self._pending.pop(call.id, None)
+            self._pending.pop(message.id, None)
         if isinstance(answer, CallFailed):
             raise WorkerUnavailableError(f"instance {self.uid}: {answer.reason}")
+        if not isinstance(answer, answer_type):
+            raise WorkerUnavailableError(f"instance {self.uid}: unexpected {answer.type}")
         return answer
+
+    async def call(self, call: HttpCall, call_timeout: float = CALL_TIMEOUT) -> HttpResult:
+        return await self.request(call, HttpResult, call_timeout)

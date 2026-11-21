@@ -216,3 +216,41 @@ async def test_unix_socket(tmp_path: Path) -> None:
     assert (await link.call(HttpCall(id=0, method="GET", path="/"))).status == 204
     task.cancel()
     server.close()
+
+
+# --- tunnel messages ---------------------------------------------------------
+
+
+def test_round_trip_of_the_tunnel_messages() -> None:
+    from fake_tunnel_backend import make_spec
+    from h42mesh.agent.ipc.protocol import (
+        AnyMessage,
+        TunnelsApplied,
+        TunnelsApply,
+        TunnelStatuses,
+        TunnelStatusQuery,
+    )
+    from h42mesh.agent.tunnels.backend import TunnelStatus
+
+    messages: list[AnyMessage] = [
+        TunnelsApply(id=3, connection_number=1, tunnels=[make_spec()]),
+        TunnelsApplied(id=3, created=["wd0c0parir0c0"], errors={"wd0c0rootr0c0": "x"}),
+        TunnelStatusQuery(id=4),
+        TunnelStatuses(
+            id=4, tunnels=[TunnelStatus(name="wd0c0parir0c0", tunnel_id=UID, running=True)]
+        ),
+    ]
+    for message in messages:
+        assert decode(encode(message)) == message
+
+
+async def test_answer_of_another_type_is_refused() -> None:
+    from h42mesh.agent.ipc.protocol import TunnelsApplied, TunnelStatusQuery
+
+    hub = WorkerHub({UID})
+    async with wired(hub, {UID: FakeController(lambda c: answer(200))}):
+        link = hub.get(UID)
+        assert link is not None
+        # This instance has no tunnel management: call_failed.
+        with pytest.raises(WorkerUnavailableError, match="no tunnel management"):
+            await link.request(TunnelStatusQuery(id=0), TunnelsApplied)

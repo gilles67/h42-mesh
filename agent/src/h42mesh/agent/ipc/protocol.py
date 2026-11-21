@@ -2,8 +2,13 @@
 
 Over a local Unix socket (not affected by VRFs): one JSON object per line.
 The instance connects and introduces itself (``hello``); then the main process
-sends requests (``http_call``), each answered by a result or a failure with
-the same ``id``.
+sends requests, each answered with the same ``id`` (or by ``call_failed``):
+
+| Request                 | Answer              |
+| ----------------------- | ------------------- |
+| ``http_call``           | ``http_result``     |
+| ``tunnels_apply``       | ``tunnels_applied`` |
+| ``tunnel_status_query`` | ``tunnel_statuses`` |
 """
 
 import base64
@@ -13,6 +18,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from h42mesh.agent.messages import AddressFamily
+from h42mesh.agent.tunnels.backend import TunnelSpec, TunnelStatus
 
 MAX_MESSAGE_BYTES = 32 * 1024 * 1024
 
@@ -64,7 +70,48 @@ class CallFailed(_Message):
     reason: str
 
 
-Message = Annotated[Hello | HttpCall | HttpResult | CallFailed, Field(discriminator="type")]
+class TunnelsApply(_Message):
+    """Every wanted tunnel of the connection: the others are removed."""
+
+    type: Literal["tunnels_apply"] = "tunnels_apply"
+    id: int
+    connection_number: int = Field(ge=0, le=9)
+    tunnels: list[TunnelSpec]
+
+
+class TunnelsApplied(_Message):
+    type: Literal["tunnels_applied"] = "tunnels_applied"
+    id: int
+    created: list[str] = Field(default_factory=list)
+    updated: list[str] = Field(default_factory=list)
+    deleted: list[str] = Field(default_factory=list)
+    errors: dict[str, str] = Field(default_factory=dict)  # interface name -> error
+
+
+class TunnelStatusQuery(_Message):
+    type: Literal["tunnel_status_query"] = "tunnel_status_query"
+    id: int
+
+
+class TunnelStatuses(_Message):
+    type: Literal["tunnel_statuses"] = "tunnel_statuses"
+    id: int
+    tunnels: list[TunnelStatus]
+
+
+AnyMessage = (
+    Hello
+    | HttpCall
+    | HttpResult
+    | CallFailed
+    | TunnelsApply
+    | TunnelsApplied
+    | TunnelStatusQuery
+    | TunnelStatuses
+)
+CallMessage = HttpCall | TunnelsApply | TunnelStatusQuery  # main process -> instance
+AnswerMessage = HttpResult | TunnelsApplied | TunnelStatuses | CallFailed  # instance -> main
+Message = Annotated[AnyMessage, Field(discriminator="type")]
 _adapter: TypeAdapter[Message] = TypeAdapter(Message)
 
 
@@ -72,14 +119,14 @@ class ProtocolError(Exception):
     pass
 
 
-def encode(message: Hello | HttpCall | HttpResult | CallFailed) -> bytes:
+def encode(message: AnyMessage) -> bytes:
     data = message.model_dump_json().encode() + b"\n"
     if len(data) > MAX_MESSAGE_BYTES:
         raise ProtocolError(f"message too large ({len(data)} bytes)")
     return data
 
 
-def decode(line: bytes) -> Hello | HttpCall | HttpResult | CallFailed:
+def decode(line: bytes) -> AnyMessage:
     if len(line) > MAX_MESSAGE_BYTES:
         raise ProtocolError("message too large")
     try:

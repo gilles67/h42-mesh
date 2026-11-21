@@ -9,6 +9,7 @@ dependencies = [
     "dnspython>=2.7,<3",
     "pydantic>=2.10,<3",
     "pyjwt>=2.10,<3",
+    "pyroute2>=0.9,<0.10",
     "requests>=2.32,<3",
     "typer>=0.15,<1",
 ]
@@ -53,6 +54,10 @@ plugins = ["pydantic.mypy"]
 # The agent only runs on Linux (Unix sockets, VRFs).
 platform = "linux"
 
+[[tool.mypy.overrides]]
+module = ["pyroute2", "pyroute2.*"]  # no type annotations
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["tests"]
@@ -60,5 +65,5 @@ addopts = "-ra --strict-markers"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = [
-    "integration: needs Linux, root and H42_MESH_AGENT_INTEGRATION=1 (VRF, ip vrf exec)",
+    "integration: needs Linux, root and H42_MESH_AGENT_INTEGRATION=1 (VRF, ip vrf exec, wireguard-go)",
 ]

@@ -15,7 +15,7 @@ from h42mesh.agent.ipc.channel import Channel
 from h42mesh.agent.ipc.hub import WorkerHub
 from h42mesh.agent.messages import AddressFamily
 from h42mesh.agent.net.https import ControllerUnreachableError, HttpResponse
-from h42mesh.agent.worker import serve
+from h42mesh.agent.worker import InstanceTunnels, serve
 
 Handler = Callable[[dict[str, Any]], HttpResponse]
 
@@ -56,15 +56,21 @@ def answer(status: int, body: bytes = b"", **headers: str) -> HttpResponse:
 
 @contextlib.asynccontextmanager
 async def wired(
-    hub: WorkerHub, instances: dict[UUID, FakeController]
+    hub: WorkerHub,
+    instances: dict[UUID, FakeController],
+    tunnels: dict[UUID, InstanceTunnels] | None = None,
 ) -> AsyncIterator[dict[UUID, asyncio.Task[None]]]:
-    """Start a local server for ``hub`` and connect one instance per entry."""
+    """Start a local server for ``hub`` and connect one instance per entry
+    (with its tunnel management from ``tunnels``, if given)."""
     server = await asyncio.start_server(hub.handle_connection, "127.0.0.1", 0)
     port = server.sockets[0].getsockname()[1]
     tasks: dict[UUID, asyncio.Task[None]] = {}
     try:
         for uid, controller in instances.items():
-            tasks[uid] = asyncio.create_task(connect_instance(port, uid, controller))
+            instance_tunnels = (tunnels or {}).get(uid)
+            tasks[uid] = asyncio.create_task(
+                connect_instance(port, uid, controller, instance_tunnels)
+            )
         await wait_for(lambda: hub.connected() == set(instances))
         yield tasks
     finally:
@@ -74,11 +80,13 @@ async def wired(
         server.close()
 
 
-async def connect_instance(port: int, uid: UUID, controller: FakeController) -> None:
+async def connect_instance(
+    port: int, uid: UUID, controller: FakeController, tunnels: InstanceTunnels | None = None
+) -> None:
     reader, writer = await asyncio.open_connection("127.0.0.1", port)
     channel = Channel(reader, writer)
     try:
-        await serve(channel, uid, controller)
+        await serve(channel, uid, controller, tunnels)
     finally:
         await channel.close()
 
