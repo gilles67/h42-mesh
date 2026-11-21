@@ -1,0 +1,20 @@
+# /etc/h42-mesh/agent.toml (example of docs/specs/agent.md)
+controllers = ["https://vps1.example.org", "https://vps2.example.org"]
+mesh_number = 0
+# dns_servers = ["1.1.1.1", "2606:4700:4700::1111", "8.8.8.8", "2001:4860:4860::8888"]
+
+[internal_link]                     # seulement sur un site à deux routeurs
+interface = "eth2"
+peer_link_local = "fe80::1a2b:3cff:fe4d:5e6f"
+
+[[connections]]
+uid = "6f1c0d2e-8b7a-4c1e-9d3f-2a5b6c7d8e9f"   # c0, fibre
+interface = "eth1"
+vrf = "wan0"
+
+[[connections]]
+uid = "0b9e8d7c-6a5f-4e3d-2c1b-0a9f8e7d6c5b"   # c1, 4G
+interface = "wwan0"
+vrf = "wan1"
+fallback_delay = 30      # secondes
+ipv6_retry = 600         # secondes

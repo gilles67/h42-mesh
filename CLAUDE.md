@@ -152,7 +152,7 @@ Adresses publiques : **au plus une IPv4 et une IPv6 par connexion**, jamais sais
 - Annotations de type partout ; code asynchrone côté contrôleur.
 - Formatage et analyse : ruff ; vérification de types : mypy ; tests : pytest.
 - Tests du contrôleur exécutés sur **SQLite et PostgreSQL**.
-- Dépendances : uniquement des bibliothèques compatibles avec la licence MIT (MIT, BSD, Apache 2.0). Les outils GPL (FRR, WireGuard, keepalived) sont pilotés comme programmes séparés, jamais intégrés.
+- Dépendances : uniquement des bibliothèques compatibles avec la licence MIT (MIT, BSD, Apache 2.0, ISC). Les outils GPL (FRR, WireGuard, keepalived) sont pilotés comme programmes séparés, jamais intégrés.
 
 ### TypeScript
 - Mode strict activé.
@@ -188,6 +188,11 @@ H42_MESH_PASSPHRASE_FILE=.dev-passphrase uv run uvicorn h42mesh.controller.app:c
 # PowerShell : $env:H42_MESH_PASSPHRASE_FILE = ".dev-passphrase" ; puis la commande uvicorn
 # santé : http://127.0.0.1:8000/api/v1/health ; documentation : http://127.0.0.1:8000/api/v1/docs
 
-# agent : à définir
+# agent (depuis agent/)
+uv sync                                    # installation
+uv run ruff check . && uv run ruff format --check .
+uv run mypy
+uv run pytest
+uv run h42-mesh-agent --config tests/data/agent.toml status   # configuration par défaut : /etc/h42-mesh/agent.toml
 # interface : à définir
 ```
