@@ -4,6 +4,50 @@
     "subtitle": "Self-hosted mesh VPN",
     "welcome": "The screens of the controller will appear here."
   },
+  "common": {
+    "logout": "Log out",
+    "retry": "Retry"
+  },
+  "auth": {
+    "unreachableTitle": "Controller unreachable"
+  },
+  "login": {
+    "title": "Log in",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Log in",
+    "expired": "Your session has expired. Please log in again.",
+    "totpTitle": "Two-factor authentication",
+    "totpHelp": "Enter the 6-digit code shown by your authenticator app.",
+    "totpCode": "Code",
+    "totpSubmit": "Verify",
+    "codeFormat": "Enter the 6 digits of the code.",
+    "otherAccount": "Use another account"
+  },
+  "password": {
+    "title": "Change your password",
+    "firstLogin": "This is your first login: choose a new password.",
+    "current": "Current password",
+    "new": "New password",
+    "confirm": "Confirm the new password",
+    "hint": "At least {{min}} characters.",
+    "tooShort": "The new password must have at least {{min}} characters.",
+    "mismatch": "The two new passwords differ.",
+    "submit": "Change the password",
+    "changed": "Password changed. Your other sessions have been closed."
+  },
+  "totpSetup": {
+    "title": "Set up two-factor authentication",
+    "intro": "Two-factor authentication is required. Scan this QR code with an authenticator app (Aegis, FreeOTP, Google Authenticator…), then enter the code it shows.",
+    "qrTitle": "QR code for the authenticator app",
+    "manual": "Or enter this key by hand:",
+    "code": "Code",
+    "submit": "Enable"
+  },
+  "user": {
+    "menu": "Account",
+    "changePassword": "Change password"
+  },
   "health": {
     "label": "Controller",
     "checking": "Checking…",
@@ -13,5 +57,19 @@
   },
   "footer": {
     "maxmind": "This product includes GeoLite2 data created by MaxMind, available from <url>https://www.maxmind.com</url>."
+  },
+  "errors": {
+    "invalid_credentials": "Invalid username or password.",
+    "account_locked": "Too many failed attempts. Try again later.",
+    "invalid_totp_code": "Invalid code. Check the clock of your phone, then try again.",
+    "invalid_password": "Wrong current password.",
+    "password_unchanged": "The new password must differ from the current one.",
+    "invalid_totp_secret": "Invalid key: start the setup again.",
+    "totp_already_enabled": "Two-factor authentication is already enabled.",
+    "not_authenticated": "Your session has expired. Please log in again.",
+    "setup_required": "Finish the first login first.",
+    "invalid_input": "Some fields are invalid.",
+    "network": "The controller cannot be reached.",
+    "unknown": "Something went wrong. Please try again."
   }
 }

@@ -1,9 +1,11 @@
-// Page layout: header (name, state of the controller), content, footer.
+// Page layout of the logged-in user: header (name, state of the controller,
+// user menu), content, footer. Shown by the AuthGate once logged in.
 import { AppShell, Group, Stack, Text, Title } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 
 import { Footer } from "./components/Footer";
 import { HealthStatus } from "./components/HealthStatus";
+import { UserMenu } from "./components/UserMenu";
 
 export function App() {
   const { t } = useTranslation();
@@ -17,7 +19,10 @@ export function App() {
               {t("app.subtitle")}
             </Text>
           </Stack>
-          <HealthStatus />
+          <Group>
+            <HealthStatus />
+            <UserMenu />
+          </Group>
         </Group>
       </AppShell.Header>
       <AppShell.Main>

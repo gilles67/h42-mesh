@@ -38,6 +38,26 @@ TypeScript (mode strict), React, Vite, Mantine (composants), TanStack Query (app
 
 En lecture seule, les écrans sont les mêmes, sans les boutons de modification.
 
+## Authentification (implémentée dans `src/auth/`)
+
+- **Garde (`AuthGate`)** : il choisit l'écran d'après `GET /api/v1/auth/me` (`next_step`).
+  - Personne n'est connecté : écran de connexion.
+  - `change_password` : changement du mot de passe, obligatoire à la première connexion.
+  - `setup_totp` : enregistrement du TOTP.
+  - `done` : l'application. L'utilisateur est alors disponible pour tous les composants (`useUser()`).
+- **Connexion** : nom et mot de passe (`POST /auth/login`).
+  - Si la réponse demande `totp`, l'écran passe au code à 6 chiffres (`POST /auth/totp`).
+  - Cette étape est gardée par l'écran de connexion lui-même : `/auth/me` ne répond qu'à une session complète.
+- **Enregistrement du TOTP** :
+  - `POST /auth/totp/setup` donne un secret et son adresse `otpauth://`, affichée en QR code (bibliothèque qrcode.react, licence ISC). Le secret est aussi affiché par groupes de 4 caractères, pour une saisie à la main.
+  - Le secret est demandé une seule fois et gardé, pour que le QR code ne change pas pendant qu'on le scanne.
+  - Un premier code le confirme (`POST /auth/totp/confirm`).
+- **Changement de mot de passe** : à la première connexion, puis depuis le menu de l'utilisateur. L'interface vérifie la longueur minimale (12, comme le contrôleur) et la confirmation avant d'envoyer.
+- **Déconnexion** : `POST /auth/logout`, puis retour à l'écran de connexion. Les données lues pour l'utilisateur sont oubliées.
+- **Session expirée** : toute réponse 401 d'une autre route que `/auth/login` et `/auth/totp` est interceptée par le client API. L'interface oublie alors l'utilisateur et revient à l'écran de connexion, avec le message « Your session has expired ».
+- **Erreurs** : le contrôleur renvoie un code stable (`invalid_credentials`, `account_locked`…) ; l'interface le traduit (`errors.<code>` dans `en.json`). Un code inconnu donne un message générique.
+- **Routage** : il n'y a pas encore d'adresses (URL) par écran. Le garde remplace le contenu par l'écran de connexion, puis rend l'application telle qu'elle était. Un routeur viendra avec les premiers écrans du maillage.
+
 ## Mentions obligatoires
 
 Attribution MaxMind pour l'opérateur des connexions, par exemple en pied de page : « This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com ».

@@ -4,6 +4,7 @@
 import createFetchClient from "openapi-fetch";
 import createClient from "openapi-react-query";
 
+import { notifySessionExpired } from "../auth/session";
 import type { paths } from "./schema";
 
 export const fetchClient = createFetchClient<paths>({
@@ -13,6 +14,18 @@ export const fetchClient = createFetchClient<paths>({
   credentials: "include", // the session cookie
   // Looked up at each call, so that tests can replace fetch.
   fetch: (request: Request) => globalThis.fetch(request),
+});
+
+// The login steps answer 401 for a wrong password or code: not an expiry.
+const LOGIN_STEPS = new Set(["/api/v1/auth/login", "/api/v1/auth/totp"]);
+
+fetchClient.use({
+  onResponse({ request, response }) {
+    if (response.status === 401 && !LOGIN_STEPS.has(new URL(request.url).pathname)) {
+      notifySessionExpired();
+    }
+    return undefined; // keep the response as it is
+  },
 });
 
 // Hooks for TanStack Query: $api.useQuery("get", "/api/v1/health").

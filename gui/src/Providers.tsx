@@ -18,12 +18,14 @@ export function createQueryClient(): QueryClient {
 type ProvidersProps = {
   children: ReactNode;
   queryClient: QueryClient;
+  /** "test": Mantine without animations or portals, for the tests. */
+  env?: "default" | "test";
 };
 
-export function Providers({ children, queryClient }: ProvidersProps) {
+export function Providers({ children, queryClient, env = "default" }: ProvidersProps) {
   return (
     <I18nextProvider i18n={i18n}>
-      <MantineProvider theme={theme}>
+      <MantineProvider theme={theme} env={env}>
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       </MantineProvider>
     </I18nextProvider>
