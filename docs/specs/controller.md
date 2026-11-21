@@ -25,6 +25,7 @@ Python, FastAPI, Pydantic, Tortoise ORM ; SQLite (PostgreSQL possible, même cod
 | `H42_MESH_DATABASE_URL` | Adresse de la base (SQLite ou PostgreSQL) |
 | `H42_MESH_PASSPHRASE_FILE` | Fichier contenant la phrase secrète de chiffrement des secrets en base (secret Podman) |
 | `H42_MESH_GEOLITE2_ASN_FILE` | Base GeoLite2 ASN de MaxMind ; facultative (sans elle, `isp` reste vide) |
+| `H42_MESH_TRUSTED_PROXIES` | Réseaux de confiance autorisés à transmettre `X-Forwarded-For` (Traefik), en JSON, par exemple `["10.89.0.0/24"]` ; vide par défaut |
 
 Réglages des sessions de l'interface, avec leur valeur par défaut :
 
@@ -79,17 +80,22 @@ Session par cookie sécurisé, double authentification TOTP, limitation des tent
 
 Chaque appel est authentifié par un JWT de courte durée signé par l'agent (EdDSA uniquement ; `iss`, `sub`, `aud`, `exp`, `jti` vérifiés ; `jti` enregistré contre le rejeu). Seul l'enrôlement utilise le jeton à usage unique.
 
-| Appel | Contenu |
-| --- | --- |
-| Enrôlement | jeton d'enrôlement + clé publique Ed25519 ; réponse : identifiant du routeur |
-| Renouvellement de la clé de signature | nouvelle clé publique signée avec l'ancienne ; remplace l'ancienne |
-| Reconnaissance des adresses publiques | UID de la connexion, adresse forcée facultative ; le contrôleur enregistre l'adresse vue (ou forcée) et met à jour l'opérateur |
-| Lecture de la configuration | la configuration voulue du routeur (voir ci-dessous) |
-| Remontée des tunnels | pour chaque tunnel : clé publique WireGuard de son extrémité, port choisi |
-| Remontée de l'état | par tunnel : famille utilisée, dernière poignée de main, session BGP établie |
-| Remontée des routes BGP | table BGP complète du routeur ; remplace la précédente |
+| Appel | Route | Contenu |
+| --- | --- | --- |
+| Enrôlement | `POST /agent/enroll` | jeton d'enrôlement + clé publique Ed25519 ; réponse : identifiant du routeur |
+| Identité | `GET /agent/me` | routeur, maillage, quadrigramme, numéro |
+| Renouvellement de la clé de signature | `PUT /agent/signing-key` | nouvelle clé publique, requête signée avec l'ancienne ; remplace l'ancienne |
+| Reconnaissance des adresses publiques | `POST /agent/public-address` | UID de la connexion (du routeur authentifié), famille, adresse forcée facultative ; le contrôleur enregistre l'adresse vue (ou forcée) et met à jour l'opérateur |
+| Lecture de la configuration | `GET /agent/config` | la configuration voulue du routeur (voir ci-dessous) ; `ETag`, et 304 avec `If-None-Match` |
+| Remontée des tunnels | `POST /agent/tunnels` | pour chaque tunnel : clé publique WireGuard de son extrémité, port choisi ; tout ou rien, un port une seule fois par routeur |
+| Remontée de l'état | `PUT /agent/tunnel-status` | par tunnel : famille utilisée, dernière poignée de main, session BGP établie ; photo complète, remplace l'état précédent du routeur |
+| Remontée des routes BGP | `PUT /agent/bgp-routes` | table BGP complète du routeur ; remplace la précédente (10 000 routes au plus) |
 
-**Configuration d'un routeur** (*proposition de contenu*) : son site (quadrigramme, AS) et son numéro ; ses connexions (UID, numéro, rôle, priorité, `direct`) ; pour chacun de ses tunnels : UID, côté (`a` ou `b`), connexion locale, connexion distante (quadrigramme du site, numéro de routeur, numéro de connexion, AS, adresses publiques), paires d'adresses IPv4 (169.254) et IPv6 (`fe80::a9fe:…`), clé publique et port de l'autre extrémité, PSK, port déjà attribué à cette extrémité, rôle du tunnel. Une empreinte de la configuration permet à l'agent de savoir si elle a changé.
+Un agent ne peut désigner que ses propres connexions et tunnels : ceux d'un autre routeur sont traités comme inconnus (404).
+
+**Adresse vue** : adresse du pair TCP ; l'en-tête `X-Forwarded-For` n'est lu que si ce pair est dans `H42_MESH_TRUSTED_PROXIES` (Traefik), de droite à gauche en sautant les adresses de confiance. Une adresse vue non publique (privée, locale au lien, bouclage…) est refusée ; une adresse forcée ne l'est pas. L'opérateur est déduit de l'IPv4 si elle est connue, sinon de l'IPv6.
+
+**Configuration d'un routeur** (format 1) : maillage ; site (quadrigramme, AS) ; routeur (numéro, nom) ; connexions (UID, numéro, rôle, priorité, `direct`, adresses publiques), triées par numéro ; tunnels du routeur, triés par UID, chacun avec : UID, côté (`a` ou `b`), rôle, familles possibles, connexion locale, paires IPv4 et IPv6 avec les adresses locale et distante déjà calculées, clé publique et port déjà enregistrés pour cette extrémité, PSK, et l'autre extrémité (connexion, quadrigramme, AS, numéros de routeur et de connexion, clé publique). Seul le côté `b` reçoit le port de `a` et ses adresses publiques (`endpoints`, dans les familles où `a` accepte les entrées, IPv6 d'abord). Le nom des interfaces, la plage de ports et les communautés BGP sont calculés par l'agent. L'empreinte (`fingerprint`, aussi `ETag`) est le SHA-256 du JSON canonique, sans l'empreinte elle-même.
 
 La PSK n'est transmise qu'aux agents des deux extrémités du tunnel, jamais par l'API de l'interface.
 

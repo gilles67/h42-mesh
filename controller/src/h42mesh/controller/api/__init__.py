@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from h42mesh.controller.api import (
     agent,
+    agent_reports,
     auth,
     enrollment,
     health,
@@ -24,3 +25,4 @@ router.include_router(inventory.router)
 router.include_router(tunnels.router)
 router.include_router(enrollment.router)
 router.include_router(agent.router)
+router.include_router(agent_reports.router)

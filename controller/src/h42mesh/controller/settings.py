@@ -1,8 +1,9 @@
 """Controller settings, read from the environment (``H42_MESH_`` prefix)."""
 
+import ipaddress
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +33,17 @@ class Settings(BaseSettings):
     agent_jwt_audience: str = "h42-mesh-controller"
     agent_jwt_max_lifetime_seconds: int = Field(default=300, gt=0)  # exp at most this far
     agent_jwt_leeway_seconds: int = Field(default=30, ge=0)  # clock skew tolerance
+
+    # Networks allowed to pass the client address in X-Forwarded-For (Traefik),
+    # as JSON: H42_MESH_TRUSTED_PROXIES='["10.89.0.0/24"]'. Empty: never trusted.
+    trusted_proxies: list[str] = Field(default_factory=list)
+    # MaxMind GeoLite2 ASN database (optional): fills Connection.isp.
+    geolite2_asn_file: Path | None = None
+
+    @field_validator("trusted_proxies")
+    @classmethod
+    def _networks(cls, value: list[str]) -> list[str]:
+        return [str(ipaddress.ip_network(network, strict=False)) for network in value]
 
 
 def get_settings() -> Settings:

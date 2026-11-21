@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from tortoise import fields
 
@@ -33,6 +34,8 @@ class Router(BaseModel):
     enrolled_at = fields.DatetimeField(null=True)
     last_seen_at = fields.DatetimeField(null=True)
     routes_reported_at = fields.DatetimeField(null=True)  # last BGP table report
+
+    site_id: UUID  # foreign key column, declared for type checking
 
     connections: fields.ReverseRelation["Connection"]
     enrollment_tokens: fields.ReverseRelation["EnrollmentToken"]

@@ -3207,6 +3207,356 @@
           }
         }
       }
+    },
+    "/api/v1/agent/config": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Desired configuration of the router",
+        "description": "Site, connections and tunnels of the router, with the PSK of its tunnels only.\n\nThe ETag is the fingerprint: with the same fingerprint in If-None-Match,\nthe answer is 304 without a body.",
+        "operationId": "get_router_config",
+        "parameters": [
+          {
+            "name": "if-none-match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouterConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "304": {
+            "description": "Not modified (If-None-Match)"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/public-address": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Discover the public address of a connection",
+        "description": "Sent through the connection itself, once per family.\n\nThe controller records the source address it sees, or the address forced\nby the local configuration of the agent.",
+        "operationId": "report_public_address",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicAddressReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicAddressResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/tunnels": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Report the public key and port of tunnel ends of the router",
+        "description": "All or nothing. A port is used once per router, all connections included.",
+        "operationId": "report_tunnel_keys",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TunnelKeysReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/tunnel-status": {
+      "put": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Report the state of the tunnels of the router (full snapshot)",
+        "description": "Replaces every status reported by this router.",
+        "operationId": "report_tunnel_status",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TunnelStatusesReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/bgp-routes": {
+      "put": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Report the BGP table of the router (replaces the previous one)",
+        "description": "Every known path, not only the best; no history is kept.",
+        "operationId": "report_bgp_routes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BgpRoutesReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3248,6 +3598,416 @@
           "router_number"
         ],
         "title": "AgentIdentity"
+      },
+      "BgpRouteReport": {
+        "properties": {
+          "prefix": {
+            "type": "string",
+            "maxLength": 43,
+            "title": "Prefix"
+          },
+          "source": {
+            "$ref": "#/components/schemas/BgpRouteSource"
+          },
+          "tunnel_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tunnel Id"
+          },
+          "as_path": {
+            "items": {
+              "type": "integer",
+              "maximum": 4294967295.0,
+              "minimum": 0.0
+            },
+            "type": "array",
+            "maxItems": 255,
+            "title": "As Path"
+          },
+          "origin_asn": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 4294967295.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Asn"
+          },
+          "is_best": {
+            "type": "boolean",
+            "title": "Is Best"
+          },
+          "is_backup": {
+            "type": "boolean",
+            "title": "Is Backup"
+          },
+          "local_pref": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 4294967295.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Pref"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "prefix",
+          "source",
+          "as_path",
+          "is_best",
+          "is_backup"
+        ],
+        "title": "BgpRouteReport"
+      },
+      "BgpRouteSource": {
+        "type": "string",
+        "enum": [
+          "local",
+          "tunnel",
+          "internal"
+        ],
+        "title": "BgpRouteSource"
+      },
+      "BgpRoutesReport": {
+        "properties": {
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/BgpRouteReport"
+            },
+            "type": "array",
+            "maxItems": 10000,
+            "title": "Routes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "routes"
+        ],
+        "title": "BgpRoutesReport"
+      },
+      "ConfigConnection": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ConnectionRole"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "direct": {
+            "$ref": "#/components/schemas/DirectMode"
+          },
+          "public_ipv4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Ipv4"
+          },
+          "public_ipv6": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Ipv6"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "number",
+          "name",
+          "role",
+          "priority",
+          "direct",
+          "public_ipv4",
+          "public_ipv6"
+        ],
+        "title": "ConfigConnection"
+      },
+      "ConfigMesh": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ConfigMesh"
+      },
+      "ConfigPeer": {
+        "properties": {
+          "connection_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Connection Id"
+          },
+          "site_nickname": {
+            "type": "string",
+            "title": "Site Nickname"
+          },
+          "site_asn": {
+            "type": "integer",
+            "title": "Site Asn"
+          },
+          "router_number": {
+            "type": "integer",
+            "title": "Router Number"
+          },
+          "connection_number": {
+            "type": "integer",
+            "title": "Connection Number"
+          },
+          "public_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Key",
+            "description": "Peer WireGuard public key, once reported"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port",
+            "description": "Port of a, sent to b only"
+          },
+          "endpoints": {
+            "items": {
+              "$ref": "#/components/schemas/Endpoint"
+            },
+            "type": "array",
+            "title": "Endpoints",
+            "description": "Public addresses of a, for b only: families a accepts, IPv6 first"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connection_id",
+          "site_nickname",
+          "site_asn",
+          "router_number",
+          "connection_number",
+          "public_key",
+          "port",
+          "endpoints"
+        ],
+        "title": "ConfigPeer"
+      },
+      "ConfigRouter": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "number",
+          "name"
+        ],
+        "title": "ConfigRouter"
+      },
+      "ConfigSite": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "asn": {
+            "type": "integer",
+            "title": "Asn"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "nickname",
+          "asn"
+        ],
+        "title": "ConfigSite"
+      },
+      "ConfigTunnel": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "side": {
+            "$ref": "#/components/schemas/TunnelSide"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ConnectionRole"
+          },
+          "families": {
+            "items": {
+              "$ref": "#/components/schemas/AddressFamily"
+            },
+            "type": "array",
+            "title": "Families"
+          },
+          "local_connection_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Local Connection Id"
+          },
+          "ipv4_network": {
+            "type": "string",
+            "title": "Ipv4 Network"
+          },
+          "ipv6_network": {
+            "type": "string",
+            "title": "Ipv6 Network"
+          },
+          "local_ipv4": {
+            "type": "string",
+            "title": "Local Ipv4"
+          },
+          "local_ipv6": {
+            "type": "string",
+            "title": "Local Ipv6"
+          },
+          "peer_ipv4": {
+            "type": "string",
+            "title": "Peer Ipv4"
+          },
+          "peer_ipv6": {
+            "type": "string",
+            "title": "Peer Ipv6"
+          },
+          "local_public_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Public Key",
+            "description": "As registered by the controller"
+          },
+          "local_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Port",
+            "description": "As registered: reuse it"
+          },
+          "preshared_key": {
+            "type": "string",
+            "title": "Preshared Key"
+          },
+          "peer": {
+            "$ref": "#/components/schemas/ConfigPeer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "side",
+          "role",
+          "families",
+          "local_connection_id",
+          "ipv4_network",
+          "ipv6_network",
+          "local_ipv4",
+          "local_ipv6",
+          "peer_ipv4",
+          "peer_ipv6",
+          "local_public_key",
+          "local_port",
+          "preshared_key",
+          "peer"
+        ],
+        "title": "ConfigTunnel"
       },
       "ConnectionCreate": {
         "properties": {
@@ -3563,6 +4323,23 @@
         "title": "DirectMode",
         "description": "Address families in which a connection accepts inbound tunnels."
       },
+      "Endpoint": {
+        "properties": {
+          "family": {
+            "$ref": "#/components/schemas/AddressFamily"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "family",
+          "address"
+        ],
+        "title": "Endpoint"
+      },
       "EnrollRequest": {
         "properties": {
           "token": {
@@ -3864,6 +4641,115 @@
           "new_password"
         ],
         "title": "PasswordChangeRequest"
+      },
+      "PublicAddressReport": {
+        "properties": {
+          "connection_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Connection Id"
+          },
+          "family": {
+            "$ref": "#/components/schemas/AddressFamily"
+          },
+          "forced_address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 45
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forced Address",
+            "description": "Recorded instead of the source address"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "connection_id",
+          "family"
+        ],
+        "title": "PublicAddressReport"
+      },
+      "PublicAddressResult": {
+        "properties": {
+          "family": {
+            "$ref": "#/components/schemas/AddressFamily"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "isp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "family",
+          "address",
+          "isp"
+        ],
+        "title": "PublicAddressResult"
+      },
+      "RouterConfig": {
+        "properties": {
+          "format": {
+            "type": "integer",
+            "title": "Format",
+            "description": "Version of this format"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint",
+            "description": "SHA-256 of the configuration; also the ETag"
+          },
+          "mesh": {
+            "$ref": "#/components/schemas/ConfigMesh"
+          },
+          "site": {
+            "$ref": "#/components/schemas/ConfigSite"
+          },
+          "router": {
+            "$ref": "#/components/schemas/ConfigRouter"
+          },
+          "connections": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigConnection"
+            },
+            "type": "array",
+            "title": "Connections"
+          },
+          "tunnels": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigTunnel"
+            },
+            "type": "array",
+            "title": "Tunnels"
+          }
+        },
+        "type": "object",
+        "required": [
+          "format",
+          "fingerprint",
+          "mesh",
+          "site",
+          "router",
+          "connections",
+          "tunnels"
+        ],
+        "title": "RouterConfig"
       },
       "RouterCreate": {
         "properties": {
@@ -4288,6 +5174,54 @@
         ],
         "title": "TunnelEnd"
       },
+      "TunnelKeyReport": {
+        "properties": {
+          "tunnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tunnel Id"
+          },
+          "public_key": {
+            "type": "string",
+            "maxLength": 44,
+            "minLength": 44,
+            "title": "Public Key",
+            "description": "Ed25519 public key, base64 (32 bytes)"
+          },
+          "port": {
+            "type": "integer",
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tunnel_id",
+          "public_key",
+          "port"
+        ],
+        "title": "TunnelKeyReport"
+      },
+      "TunnelKeysReport": {
+        "properties": {
+          "tunnels": {
+            "items": {
+              "$ref": "#/components/schemas/TunnelKeyReport"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "title": "Tunnels"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tunnels"
+        ],
+        "title": "TunnelKeysReport"
+      },
       "TunnelRead": {
         "properties": {
           "id": {
@@ -4347,6 +5281,74 @@
           "created_at"
         ],
         "title": "TunnelRead"
+      },
+      "TunnelSide": {
+        "type": "string",
+        "enum": [
+          "a",
+          "b"
+        ],
+        "title": "TunnelSide"
+      },
+      "TunnelStatusReport": {
+        "properties": {
+          "tunnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tunnel Id"
+          },
+          "family_in_use": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AddressFamily"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_handshake_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Handshake At"
+          },
+          "bgp_established": {
+            "type": "boolean",
+            "title": "Bgp Established",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tunnel_id"
+        ],
+        "title": "TunnelStatusReport"
+      },
+      "TunnelStatusesReport": {
+        "properties": {
+          "tunnels": {
+            "items": {
+              "$ref": "#/components/schemas/TunnelStatusReport"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "title": "Tunnels"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tunnels"
+        ],
+        "title": "TunnelStatusesReport"
       },
       "UserCreate": {
         "properties": {

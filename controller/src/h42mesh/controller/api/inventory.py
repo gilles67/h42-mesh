@@ -152,7 +152,7 @@ async def delete_site(site: ManagedSite) -> None:
 def to_router_read(router_: Router) -> RouterRead:
     return RouterRead(
         id=router_.id,
-        site_id=router_.site_id,  # type: ignore[attr-defined]
+        site_id=router_.site_id,
         number=router_.number,
         name=router_.name,
         enrolled=router_.signing_public_key is not None,
@@ -232,7 +232,7 @@ async def delete_router(router_: ManagedRouter) -> None:
 def to_connection_read(connection: Connection) -> ConnectionRead:
     return ConnectionRead(
         id=connection.id,
-        router_id=connection.router_id,  # type: ignore[attr-defined]
+        router_id=connection.router_id,
         number=connection.number,
         name=connection.name,
         role=connection.role,

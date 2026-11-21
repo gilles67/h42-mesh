@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from tortoise import fields
 
@@ -33,6 +34,8 @@ class Connection(BaseModel):
     public_ipv4_updated_at = fields.DatetimeField(null=True)
     public_ipv6 = fields.CharField(max_length=39, null=True, validators=[IPAddressValidator(6)])
     public_ipv6_updated_at = fields.DatetimeField(null=True)
+
+    router_id: UUID  # foreign key column, declared for type checking
 
     tunnels_as_a: fields.ReverseRelation["Tunnel"]
     tunnels_as_b: fields.ReverseRelation["Tunnel"]
