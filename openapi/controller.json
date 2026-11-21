@@ -1586,6 +1586,16 @@
             },
             "description": "Conflict"
           },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1750,6 +1760,16 @@
             },
             "description": "Conflict"
           },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1824,6 +1844,16 @@
               }
             },
             "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           },
           "422": {
             "description": "Validation Error",
@@ -1993,6 +2023,16 @@
             },
             "description": "Conflict"
           },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -2157,6 +2197,16 @@
             },
             "description": "Conflict"
           },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -2231,6 +2281,16 @@
               }
             },
             "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           },
           "422": {
             "description": "Validation Error",
@@ -2400,6 +2460,16 @@
             },
             "description": "Conflict"
           },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -2564,6 +2634,16 @@
             },
             "description": "Conflict"
           },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -2639,6 +2719,166 @@
             },
             "description": "Conflict"
           },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meshes/{mesh_id}/tunnels": {
+      "get": {
+        "tags": [
+          "tunnels"
+        ],
+        "summary": "List the tunnels of a mesh",
+        "operationId": "list_tunnels",
+        "parameters": [
+          {
+            "name": "mesh_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Mesh Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TunnelRead"
+                  },
+                  "title": "Response List Tunnels"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tunnels/{tunnel_id}": {
+      "get": {
+        "tags": [
+          "tunnels"
+        ],
+        "summary": "Read a tunnel",
+        "operationId": "get_tunnel",
+        "parameters": [
+          {
+            "name": "tunnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tunnel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TunnelRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -2655,6 +2895,14 @@
   },
   "components": {
     "schemas": {
+      "AddressFamily": {
+        "type": "string",
+        "enum": [
+          "ipv4",
+          "ipv6"
+        ],
+        "title": "AddressFamily"
+      },
       "ConnectionCreate": {
         "properties": {
           "number": {
@@ -3549,6 +3797,133 @@
           "otpauth_uri"
         ],
         "title": "TotpSetupResponse"
+      },
+      "TunnelEnd": {
+        "properties": {
+          "connection_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Connection Id"
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Site Id"
+          },
+          "site_nickname": {
+            "type": "string",
+            "title": "Site Nickname"
+          },
+          "router_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Router Id"
+          },
+          "router_number": {
+            "type": "integer",
+            "title": "Router Number"
+          },
+          "connection_number": {
+            "type": "integer",
+            "title": "Connection Number"
+          },
+          "public_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Key",
+            "description": "WireGuard public key, reported by the agent"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port",
+            "description": "Port chosen and reported by the agent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connection_id",
+          "site_id",
+          "site_nickname",
+          "router_id",
+          "router_number",
+          "connection_number",
+          "public_key",
+          "port"
+        ],
+        "title": "TunnelEnd"
+      },
+      "TunnelRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "mesh_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Mesh Id"
+          },
+          "a": {
+            "$ref": "#/components/schemas/TunnelEnd",
+            "description": "Listening end; first address of each pair"
+          },
+          "b": {
+            "$ref": "#/components/schemas/TunnelEnd",
+            "description": "Initiating end; second address of each pair"
+          },
+          "ipv4_network": {
+            "type": "string",
+            "title": "Ipv4 Network"
+          },
+          "ipv6_network": {
+            "type": "string",
+            "title": "Ipv6 Network"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ConnectionRole",
+            "description": "Weaker role of both ends"
+          },
+          "families": {
+            "items": {
+              "$ref": "#/components/schemas/AddressFamily"
+            },
+            "type": "array",
+            "title": "Families",
+            "description": "Families in which a accepts inbound connections, IPv6 first"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "mesh_id",
+          "a",
+          "b",
+          "ipv4_network",
+          "ipv6_network",
+          "role",
+          "families",
+          "created_at"
+        ],
+        "title": "TunnelRead"
       },
       "UserCreate": {
         "properties": {

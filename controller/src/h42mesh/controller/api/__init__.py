@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from h42mesh.controller.api import auth, health, inventory, meshes, users
+from h42mesh.controller.api import auth, health, inventory, meshes, tunnels, users
 
 API_PREFIX = "/api/v1"
 
@@ -12,3 +12,4 @@ router.include_router(auth.router)
 router.include_router(users.router)
 router.include_router(meshes.router)
 router.include_router(inventory.router)
+router.include_router(tunnels.router)

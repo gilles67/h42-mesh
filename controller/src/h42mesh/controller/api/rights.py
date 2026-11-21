@@ -20,6 +20,7 @@ from h42mesh.controller.models import (
     MeshAccessLevel,
     Router,
     Site,
+    Tunnel,
     User,
 )
 
@@ -135,3 +136,17 @@ async def managed_connection(connection_id: UUID, user: CurrentUser) -> Connecti
 
 ReadableConnection = Annotated[Connection, Depends(readable_connection)]
 ManagedConnection = Annotated[Connection, Depends(managed_connection)]
+
+
+# --- tunnel ------------------------------------------------------------------
+
+
+async def readable_tunnel(tunnel_id: UUID, user: CurrentUser) -> Tunnel:
+    tunnel = await Tunnel.get_or_none(id=tunnel_id)
+    if tunnel is None:
+        raise not_found("tunnel")
+    await authorize(user, tunnel.mesh_id, MeshAccessLevel.READ, "tunnel")
+    return tunnel
+
+
+ReadableTunnel = Annotated[Tunnel, Depends(readable_tunnel)]

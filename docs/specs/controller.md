@@ -90,9 +90,11 @@ La PSK n'est transmise qu'aux agents des deux extrémités du tunnel, jamais par
 
 1. Pour chaque paire de connexions de deux sites différents du même maillage : retenir la paire si elle n'est pas secours ↔ secours et si au moins une des deux accepte les connexions entrantes.
 2. Choisir `a` : la connexion qui accepte les entrées ; si les deux les acceptent, celle du site de plus faible AS.
-3. Créer les tunnels nouveaux (tirage de la paire 169.254 avec nouvelle tentative en cas de conflit, calcul de la paire IPv6 qui en découle, génération de la PSK) ; supprimer ceux qui ne sont plus retenus ; si `a` et `b` s'inversent, réattribuer adresses et ports.
+3. Créer les tunnels nouveaux (tirage de la paire 169.254 avec nouvelle tentative en cas de conflit, calcul de la paire IPv6 qui en découle, génération de la PSK) ; supprimer ceux qui ne sont plus retenus ; si `a` et `b` s'inversent, réattribuer adresses et ports : les deux extrémités échangent leur place sur le même tunnel, chaque connexion gardant sa clé publique et son port, la paire d'adresses et la PSK restant les mêmes (le nouveau `a` prend la première adresse de chaque paire).
 
-*Proposition* : ce calcul est une fonction pure (inventaire en entrée, liste de tunnels voulus en sortie), testée indépendamment de la base.
+Ce calcul est une fonction pure (inventaire en entrée, liste de tunnels voulus en sortie), testée indépendamment de la base. Quand les deux connexions acceptent les entrées, même dans des familles différentes, `a` est celle du site de plus faible AS ; le tunnel n'utilise que les familles de `a`.
+
+Déclenchement : à chaque création, modification ou suppression d'une connexion, modification d'un site (AS) et suppression d'un routeur, dans la requête elle-même. L'application est idempotente et sans transaction globale (une erreur d'unicité annulerait toute la transaction sous PostgreSQL) : une exécution interrompue est terminée par la suivante.
 
 ## Tests
 

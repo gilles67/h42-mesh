@@ -2,7 +2,7 @@
 
 Listing and creation are nested under the parent; one object is addressed
 directly by its UUID. Rights come from the mesh (see ``rights.py``).
-Tunnels are not computed yet.
+Every change that may alter the tunnels recomputes them (``refresh_tunnels``).
 """
 
 from typing import Any
@@ -22,6 +22,7 @@ from h42mesh.controller.api.rights import (
     ReadableRouter,
     ReadableSite,
 )
+from h42mesh.controller.api.tunnels import refresh_tunnels
 from h42mesh.controller.errors import conflict, error_responses
 from h42mesh.controller.models import Connection, Router, Site
 from h42mesh.controller.schemas.inventory import (
@@ -38,7 +39,7 @@ from h42mesh.controller.schemas.inventory import (
 
 router = APIRouter(tags=["inventory"])
 READ_ERRORS = error_responses(401, 403, 404)
-WRITE_ERRORS = error_responses(401, 403, 404, 409)
+WRITE_ERRORS = error_responses(401, 403, 404, 409, 503)
 
 
 async def _ensure_unique(queryset: QuerySet[Any], exclude_id: UUID | None, code: str) -> None:
@@ -125,6 +126,7 @@ async def update_site(body: SiteUpdate, site: ManagedSite) -> SiteRead:
         await site.save()
     except IntegrityError as exc:
         raise _race() from exc
+    await refresh_tunnels(site.mesh_id)  # the AS may decide which end is a
     return to_site_read(site)
 
 
@@ -221,6 +223,7 @@ async def update_router(body: RouterUpdate, router_: ManagedRouter) -> RouterRea
 async def delete_router(router_: ManagedRouter) -> None:
     """Also deletes its connections, tunnels, enrollment tokens, states and BGP routes."""
     await router_.delete()
+    await refresh_tunnels(router_.site.mesh_id)
 
 
 # --- connections -------------------------------------------------------------
@@ -273,6 +276,7 @@ async def create_connection(body: ConnectionCreate, router_: ManagedRouter) -> C
         connection = await Connection.create(router=router_, **body.model_dump())
     except IntegrityError as exc:
         raise _race() from exc
+    await refresh_tunnels(router_.site.mesh_id)
     return to_connection_read(connection)
 
 
@@ -297,6 +301,7 @@ async def update_connection(
 ) -> ConnectionRead:
     connection.update_from_dict(body.changes())
     await connection.save()
+    await refresh_tunnels(connection.router.site.mesh_id)  # role or direct may change
     return to_connection_read(connection)
 
 
@@ -309,3 +314,4 @@ async def update_connection(
 async def delete_connection(connection: ManagedConnection) -> None:
     """Also deletes its tunnels."""
     await connection.delete()
+    await refresh_tunnels(connection.router.site.mesh_id)
